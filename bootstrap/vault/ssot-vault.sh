@@ -593,6 +593,57 @@ cmd_list() {
     echo ""
 }
 
+# --- SET-VAR (add empty template entries to .env.example) ---
+# Usage: vault set-var VAR...   (no args → open $EDITOR on the template)
+# Validates names, skips duplicates + machine-local vars.
+cmd_set_var() {
+    if (( $# == 0 )); then
+        local _ed="${EDITOR:-micro}"
+        if ! command -v "$_ed" >/dev/null 2>&1; then
+            _ed="nano"
+        fi
+        if ! command -v "$_ed" >/dev/null 2>&1; then
+            _ed="vi"
+        fi
+        if ! command -v "$_ed" >/dev/null 2>&1; then
+            cn 196 b "❌ No editor found (tried \$EDITOR/micro/nano/vi)."
+            echo "   Pass names instead: vault set-var MY_NEW_KEY"
+            return 1
+        fi
+        "$_ed" "$EXAMPLE_FILE"
+        return 0
+    fi
+    local _v _added=0 _skipped=0
+    for _v in "$@"; do
+        if [[ "$_v" == "--force" || "$_v" == "-f" ]]; then
+            continue
+        fi
+        if [[ ! "$_v" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then
+            cn 196 b "❌ Invalid variable name: $_v (skipped)"
+            _skipped=$((_skipped+1))
+            continue
+        fi
+        if _is_machine_var "$_v"; then
+            cn 214 b "⚠️  '$_v' looks machine-local — kept out of the template (skipped)"
+            _skipped=$((_skipped+1))
+            continue
+        fi
+        if grep -qE "^[[:space:]]*(export[[:space:]]+)?${_v}=" "$EXAMPLE_FILE" 2>/dev/null; then
+            cn 226 b "⏭️  '$_v' already in .env.example (skipped)"
+            _skipped=$((_skipped+1))
+            continue
+        fi
+        printf 'export %s=""\n' "$_v" >> "$EXAMPLE_FILE"
+        cn 82 b "✅ Added export $_v to .env.example"
+        _added=$((_added+1))
+    done
+    echo ""
+    echo "💡 Next: vault init (or vault set KEY VALUE) → vault lock → git push"
+    if (( _added == 0 && _skipped > 0 )); then
+        return 1
+    fi
+}
+
 # --- DEL (remove one secret) ---
 # Usage: vault del KEY
 cmd_del() {
@@ -625,6 +676,7 @@ case "${1:-}" in
     init|setup)         cmd_init ;;
     export|backup)      cmd_export ;;
     set|add)            shift; cmd_set "$@" ;;
+    set-var|set_var)    shift; cmd_set_var "$@" ;;
     get)                shift; cmd_get "$@" ;;
     list|ls)            cmd_list ;;
     del|rm|remove)      shift; cmd_del "$@" ;;
@@ -669,6 +721,8 @@ case "${1:-}" in
         echo "          Add/update one secret (prompts silently if no VALUE;"
         echo "          rejects machine-local names unless --force)"
         echo "  add KEY Same as set (always prompts)"
+        echo "  set-var VAR... Add empty template entries to .env.example"
+        echo "                  (no args → open editor; validates + dedups)"
         echo "  get KEY Print raw value (for scripts)"
         echo "  list    Show all secret names (values masked)"
         echo "  del KEY Remove one secret"

@@ -147,6 +147,29 @@ _do_unlock() {
     fi
 }
 
+# -- 8.1 add new secret variable in to env.example --
+_do_add_secret_var() {
+   local vars=("$@")
+   local var
+   
+    if [[ -f "$VAULT_SCRIPT" ]]; then
+        if [[ -z "${vars[@]}" ]]; then
+           micro "$EXAMPLE_FILE"
+        else
+           for var in "${vars[@]}"; do
+             add_line="export ${var}=\"\""
+             echo "$add_line" >> "$EXAMPLE_FILE"
+             cn 82 b "✅ Added variable $var to env.example"
+           done
+           
+        fi
+
+    else
+        cn 196 b "❌ Vault script not found: $VAULT_SCRIPT"
+        exit 1
+    fi
+}
+
 # ── 9. Verify secrets ──
 _do_verify() {
     _banner
@@ -394,8 +417,8 @@ _show_help() {
     echo "     └─ Verifies all secrets are populated"
     echo ""
     echo "Adding New Secrets (flexible — no script changes needed):"
-    echo "  vault set MY_NEW_KEY            # prompt + save to ~/.env.secret"
-    echo "  vault set MY_NEW_KEY \"value\"    # non-interactive"
+    echo "  vault set-var MY_NEW_KEY        # add empty entry to .env.example"
+    echo "  vault set MY_NEW_KEY \"value\"    # save value to ~/.env.secret"
     echo "  vault get MY_NEW_KEY            # print value (for scripts)"
     echo "  vault list                      # show all keys (masked)"
     echo "  vault del OLD_KEY               # remove a key"
