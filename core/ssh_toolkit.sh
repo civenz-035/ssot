@@ -548,3 +548,88 @@ ssh_kadd() {
     echo "Backup      : $backup_file"
     echo "===================================================="
 }
+
+Recreate_ssh_authorized_keys() {
+    # 1. ตรวจสอบการติดตั้งและการล็อกอินของ GitHub CLI
+    if ! command -v gh &> /dev/null; then
+        echo "[ERROR] 'gh' CLI is not installed." >&2
+        return 1
+    fi
+
+    if ! gh auth status &> /dev/null; then
+        echo "[ERROR] You are not logged in to GitHub via 'gh'. Run 'gh auth login' first." >&2
+        return 1
+    fi
+
+    # 2. ตั้งค่า Environment Tag อัตโนมัติ หาก $JOE_ENV ยังไม่ได้ถูกกำหนดไว้
+    local env_tag="${JOE_ENV:-}"
+    if [ -z "$env_tag" ]; then
+        if [ -n "${TERMUX_VERSION:-}" ] || [[ "$PREFIX" == *"com.termux"* ]]; then
+            env_tag="termux"
+        elif grep -qi "microsoft" /proc/version 2>/dev/null; then
+            env_tag="wsl"
+        else
+            env_tag="$(hostname 2>/dev/null || echo 'linux')"
+        fi
+    fi
+
+    local key_name="${USER}@${env_tag}"
+    local ssh_dir="$HOME/.ssh"
+    local key_file="$ssh_dir/id_ed25519_$key_name"
+    local pub_key="$key_file.pub"
+    local config_file="$ssh_dir/config"
+
+    # 3. เตรียมโฟลเดอร์และไฟล์ Permission ที่ถูกต้อง
+    mkdir -p "$ssh_dir" && chmod 700 "$ssh_dir"
+    touch "$config_file" && chmod 600 "$config_file"
+
+    # 4. ลบ Key เก่าใน Local (ถ้ามี) เพื่อสร้างใหม่แบบ Clean State
+    if [ -f "$key_file" ] || [ -f "$pub_key" ]; then
+        echo "[INFO] Cleaning up existing key files for $key_name..."
+        rm -f "$key_file" "$pub_key"
+    fi
+
+    # 5. สร้าง SSH Key ใหม่ (Non-interactive)
+    echo "[INFO] Generating new Ed25519 key: $key_name"
+    ssh-keygen -t ed25519 -C "$key_name" -f "$key_file" -N "" > /dev/null || return 1
+    chmod 600 "$key_file"
+    chmod 644 "$pub_key"
+
+    # 6. เพิ่ม Key ขึ้น GitHub (ลบ Key ที่มีชื่อ Title ซ้ำกันบน GitHub ก่อนถ้ามี)
+    echo "[INFO] Syncing key to GitHub via gh CLI..."
+    local existing_id
+    existing_id=$(gh ssh-key list | grep "$key_name" | awk '{print $5}' 2>/dev/null || true)
+    if [ -n "$existing_id" ]; then
+        gh ssh-key delete "$existing_id" -y &>/dev/null || true
+    fi
+    gh ssh-key add "$pub_key" -t "$key_name" || return 1
+
+    # 7. อัปเดต ~/.ssh/config แบบ idempotency (ลบ Block เก่าที่เป็นของ key นี้แล้วเขียนใหม่)
+    echo "[INFO] Updating $config_file..."
+    if grep -q "IdentityFile $key_file" "$config_file"; then
+        # ลบ Block หรือบรรทัดเก่าที่อ้างอิง key_file นี้
+        sed -i "\#IdentityFile $key_file#d" "$config_file"
+    fi
+
+    cat <<EOF >> "$config_file"
+
+# Added by Recreate_ssh_authorized_keys ($key_name)
+Host github.com
+    HostName github.com
+    User git
+    IdentityFile $key_file
+    IdentitiesOnly yes
+EOF
+
+    # 8. สตาร์ท ssh-agent (ถ้าจำเป็น) และ Add key เข้า Memory
+    if [ -z "${SSH_AUTH_SOCK:-}" ]; then
+        eval "$(ssh-agent -s)" > /dev/null
+    fi
+    ssh-add "$key_file" 2>/dev/null || true
+
+    # 9. ทดสอบการเชื่อมต่อ
+    echo -e "\n--- Testing GitHub SSH Connection ---"
+    ssh -T git@github.com
+}
+alias ressh="Recreate_ssh_authorized_keys"
+	
