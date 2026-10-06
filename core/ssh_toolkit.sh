@@ -561,19 +561,9 @@ Recreate_ssh_authorized_keys() {
         return 1
     fi
 
-    # 2. ตั้งค่า Environment Tag อัตโนมัติ หาก $JOE_ENV ยังไม่ได้ถูกกำหนดไว้
-    local env_tag="${JOE_ENV:-}"
-    if [ -z "$env_tag" ]; then
-        if [ -n "${TERMUX_VERSION:-}" ] || [[ "$PREFIX" == *"com.termux"* ]]; then
-            env_tag="termux"
-        elif grep -qi "microsoft" /proc/version 2>/dev/null; then
-            env_tag="wsl"
-        else
-            env_tag="$(hostname 2>/dev/null || echo 'linux')"
-        fi
-    fi
-
-    local key_name="${USER}@${env_tag}"
+    # 2. Key name from canonical node tag (shared/00-env.sh sets NODE_HOST
+    #    per JOE_ENV; hostname fallback keeps this usable standalone)
+    local key_name="${USER}@${NODE_HOST:-$(hostname -s 2>/dev/null || echo 'local')}"
     local ssh_dir="$HOME/.ssh"
     local key_file="$ssh_dir/id_ed25519_$key_name"
     local pub_key="$key_file.pub"
