@@ -14,7 +14,7 @@ this device as an SSOT node member (`bootstrap/nodes/<name>.node.env`):
 
 git clone https://github.com/civenz-035/ssot.git ~/ssot
 bash ~/ssot/bootstrap/install.sh <device>
-#  e.g. termux | mumu | oppo | wsl | wsl2 | acodex   (Git-Bash auto-detects)
+#  e.g. termux | window | oppo | wsl | wsl2 | acodex   (Git-Bash auto-detects)
 
 # Or set MY_DEVICE env var (same effect):
 MY_DEVICE=oppo bash ~/ssot/bootstrap/install.sh
