@@ -1,0 +1,505 @@
+#!/bin/bash
+# ============================================================
+# .bash_checker — SSOT guard dispatcher (script-safe)
+# ============================================================
+# Usage:
+#   _check_ -o -f <path> [cmd args...]  → test object, then run cmd (default: source)
+#   _check_ -s [bash|zsh]               → guard current shell (no arg = print shell)
+#   _check_ -s -d "<zsh_cmd>" "<bash_cmd>" → run cmd for active shell
+#   _check_ -j [--set|--force]          → ensure JOE_ENV (echo / export)
+#   _check_ -f <func> [search_dir]      → ensure function loaded (non-interactive safe)
+#   _check_ -p [-c] <pkg> [bin] [overrides] → ensure package installed
+#   _check_ -h|--help                   → help
+#
+# Contract: messages → stderr only, 0 = pass, non-zero = fail.
+# Safe for:  _check_ -f foo || exit 1
+#            _check_ -p -c rg || return 1
+# ============================================================
+
+# -- fallback: function-loaded test (canonical lives in personal/find_stuff.sh) --
+if ! typeset -f _is_func_loaded >/dev/null 2>&1; then
+_is_func_loaded() {
+    local func_name="${1:-}"
+    [[ -n "$func_name" ]] || return 1
+    if [[ -n "${ZSH_VERSION:-}" ]]; then
+        typeset -f "$func_name" >/dev/null 2>&1
+    else
+        declare -F "$func_name" >/dev/null 2>&1
+    fi
+}
+fi
+
+# -- _vlog fallback (canonical lives in .bash_helper — already defined if sourced first) --
+if ! typeset -f _vlog >/dev/null 2>&1; then
+    _vlog() { [[ "${SSOT_VERBOSE:-0}" == "1" ]] && echo "$@" >&2; }
+fi
+
+# -- fallback: shell guard (canonical cshell lives in .bash_helper) --
+if ! typeset -f _check_shell >/dev/null 2>&1; then
+_check_shell() {
+    local active=""
+    # Prefer the shell that is EXECUTING this code, not $_SHELL.
+    # $_SHELL is the *login* shell: launching zsh from a bash terminal leaves
+    # _SHELL=bash, which made `_check_ -s -d '<zsh>' '<bash>'` eval the bash
+    # branch inside zsh. Fall back to basename $_SHELL only as a last resort.
+    if [[ -n "${ZSH_VERSION:-}" ]]; then
+        active="zsh"
+    elif [[ -n "${BASH_VERSION:-}" ]]; then
+        active="bash"
+    else
+        active="${_SHELL##*/}"
+    fi
+    # no arg → print active shell (stdout, for capture)
+    if [[ $# -eq 0 ]]; then echo "$active"; return 0; fi
+    # -d|--detect passthrough (cshell-compatible)
+    if [[ "${1:-}" == "-d" || "${1:-}" == "--detect" ]]; then
+        shift
+        if [[ "$active" == "zsh" ]]; then eval "${1:-}"; else eval "${2:-}"; fi
+        return $?
+    fi
+    # guard mode: _check_shell bash → 0 if match, 1 otherwise
+    if [[ "$active" == "${1:-}" ]]; then return 0; fi
+    echo "[_check_ -s] shell mismatch: current='$active' required='${1:-}'" >&2
+    return 1
+}
+fi
+
+# -- lazy pkg guard (pkg_manager lives in functions/pkg_manager.sh) --
+_check_pkg() {
+    if ! typeset -f pkg_manager >/dev/null 2>&1; then
+        local _mgr="${SSOT:-$HOME/ssot}/functions/pkg_manager.sh"
+        if [[ -f "$_mgr" ]]; then
+            # shellcheck disable=SC1090
+            source "$_mgr" 2>/dev/null
+        fi
+    fi
+    if ! typeset -f pkg_manager >/dev/null 2>&1; then
+        echo "[_check_ -p] pkg_manager unavailable (missing functions/pkg_manager.sh)" >&2
+        return 127
+    fi
+    pkg_manager "$@"
+}
+
+# -- script-safe function guard: never prompt (no fzf/select in scripts) --
+_check_one_func() {
+    local func="${1:-}"
+    local context="${2:-${SSOT:-${repository:-$HOME/ssot}}}"
+    if [[ -z "$func" ]]; then return 1; fi
+    if _is_func_loaded "$func"; then return 0; fi
+
+    # prefer canonical auto-loader when interactive
+    if [[ -t 0 ]] && typeset -f auto_source >/dev/null 2>&1; then
+        _vlog "⚠️  [_check_ -f] '$func' not loaded — attempting auto_source..."
+        auto_source "$func" "$context"
+        return $?
+    fi
+
+    # non-interactive: single-match auto-source only, multi-match = fail
+    _vlog "🔍 [_check_ -f] Searching for '$func' in '$context'..."
+    if [[ -n "$context" && -d "$context" ]]; then
+        local -a _matches=()
+        local _f _line _raw_files
+        # zsh-safe: use find(1) instead of shopt globstar + "**/*.sh".
+        # 'shopt' is bash-only, and quoted "**" globs abort the whole
+        # function with "no matches found" under zsh.
+        # -name '.bash*' / '.*.sh' are required: shared/.bash_helper holds
+        # cshell/_check/_vlog and has no .sh extension.
+        _raw_files=$(find "$context" -type f \( -name '*.sh' -o -name '*.bash' -o -name '*.zsh' \
+            -o -name '.bash*' -o -name '.*.sh' -o -name '.*.zsh' \) \
+            ! -path '*/.git/*' ! -path '*/node_modules/*' ! -path '*/.cache/*' 2>/dev/null | LC_ALL=C sort)
+        if [[ -n "$_raw_files" ]]; then
+            while IFS= read -r _f; do
+                [[ -n "$_f" && -f "$_f" ]] || continue
+                while IFS= read -r _line; do
+                    if [[ "$_line" == *"function $func"* \
+                      || "$_line" == "$func()"* || "$_line" == *"$func ()"* ]]; then
+                        _matches+=("$_f"); break
+                    fi
+                done < "$_f"
+            done <<< "$_raw_files"
+        fi
+        if [[ ${#_matches[@]} -eq 1 ]]; then
+            # shellcheck disable=SC1090
+            source "${_matches[1]:-${_matches[0]}}" 2>/dev/null && _is_func_loaded "$func" && {
+                _vlog "✅ [_check_ -f] Sourced: ${_matches[1]:-${_matches[0]}}"
+                return 0
+            }
+        elif [[ ${#_matches[@]} -gt 1 ]]; then
+            echo "[_check_ -f] '$func' ambiguous (${#_matches[@]} files, refusing interactive pick in script):" >&2
+            printf '  - %s\n' "${_matches[@]}" >&2
+            return 1
+        fi
+    fi
+
+    # last resort: canonical path (may still prompt only when interactive)
+    if typeset -f _check_func >/dev/null 2>&1 && [[ -t 0 ]]; then
+        _check_func "$func" "$context"
+        return $?
+    fi
+
+    echo "[_check_ -f] '$func' not loaded, cannot auto-source non-interactively" >&2
+    return 1
+}
+_check_func_safe() {
+    if [[ $# -eq 0 ]]; then
+        echo "[_check_ -f] no function name provided" >&2
+        return 1
+    fi
+
+    local context=""
+    # 1. Parse optional -d / --dir flag
+    if [[ "${1:-}" == "-d" || "${1:-}" == "--dir" ]]; then
+        context="${2:-}"
+        shift 2 || true
+    fi
+
+    # 2. Detect context directory if passed as last argument
+    # zsh-safe: ${!#} is bash-only (returns 0 under zsh). Use ${@: -1}.
+    # set -- "${@:1:$#-1}" also fails under zsh ($#-1 is not arithmetic
+    # inside the slice) — must wrap in $(( )).
+    if [[ -z "$context" && $# -ge 2 ]]; then
+        local _last="${@: -1}"
+        local _is_arr=0
+        if [[ -n "${ZSH_VERSION:-}" ]]; then
+            [[ "${(tP)_last}" == *array* || "${(tP)_last}" == *association* ]] && _is_arr=1
+        else
+            [[ "$(declare -p "$_last" 2>/dev/null)" =~ ^declare\ -[aA] ]] && _is_arr=1
+        fi
+        if [[ -d "$_last" && $_is_arr -eq 0 ]] && ! _is_func_loaded "$_last"; then
+            context="$_last"
+            set -- "${@:1:$(( $# - 1 ))}"
+        fi
+    fi
+    context="${context:-${SSOT:-${repository:-$HOME/ssot}}}"
+
+    # 3. Collect target functions (support array variable name by reference or multiple positional args)
+    # zsh-safe: 'local -n' (nameref) is bash 4.3+ only AND zsh 5.9 leaks the
+    # value to stdout when declared inside a loop. Declared up front + eval.
+    local -a _target_funcs=()
+    local -a _arr_ref=()
+    local item
+    for item in "$@"; do
+        [[ -z "$item" ]] && continue
+        if [[ -n "${ZSH_VERSION:-}" ]]; then
+            if [[ "${(tP)item}" == *array* || "${(tP)item}" == *association* ]]; then
+                _target_funcs+=("${(@P)item}")
+                continue
+            fi
+        else
+            if [[ "$(declare -p "$item" 2>/dev/null)" =~ ^declare\ -[aA] ]]; then
+                eval "_arr_ref=(\"\${$item[@]}\")"
+                _target_funcs+=("${_arr_ref[@]}")
+                continue
+            fi
+        fi
+        _target_funcs+=("$item")
+    done
+
+    if [[ ${#_target_funcs[@]} -eq 0 ]]; then
+        echo "[_check_ -f] no function name provided" >&2
+        return 1
+    fi
+
+    local func
+    local overall_rc=0
+    for func in "${_target_funcs[@]}"; do
+        [[ -z "$func" ]] && continue
+        if _is_func_loaded "$func"; then
+            continue
+        fi
+        if ! _check_one_func "$func" "$context"; then
+            overall_rc=1
+        fi
+    done
+
+    return $overall_rc
+}
+
+# _is_comment_line — true when a grep'd line is a shell comment.
+# BUG FIXED 2026-10-03: the old inline filter was
+#   case "$line_text" in [[:space:]]#*|\#*) continue ;;
+# which can never match an indented comment — [[:space:]] consumes exactly
+# ONE space, then '#' must follow immediately, so "\t# 2. read -ra" and
+# "        # 2. read -ra" both fell through and got flagged.
+_is_comment_line() {
+    [[ "$1" =~ ^[[:space:]]*(#|//) ]]
+}
+
+# ============================================================
+# _check_compat — Dual-shell (Bash + Zsh) Compatibility Guard
+# Scans shell scripts for common Bash/Zsh portability antipatterns:
+#   1. Array 0-index: ${var[0]} -> empty in Zsh (use ${var[1]:-${var[0]}})
+#   2. read -ra -> error in Zsh
+#   3. mapfile / readarray -> Bash 4+ only
+#   4. declare -n -> unsupported in Zsh
+# Usage:
+#   _check_ -c [dir|file]
+#   _check_ --compat [dir|file]
+# ============================================================
+_check_compat() {
+    local target="${1:-${SSOT:-${repository:-$HOME/ssot}}}"
+    if [[ ! -e "$target" ]]; then
+        echo "[_check_ -c] Target not found: $target" >&2
+        return 1
+    fi
+
+    if [[ "${1:-}" == "--install-hook" || "${2:-}" == "--install-hook" ]]; then
+        local _git_dir="$target/.git"
+        [[ -f "$target" ]] && _git_dir="$(dirname "$target")/.git"
+        if [[ ! -d "$_git_dir" ]]; then
+            echo "[_check_ -c] Not a git repository: $target" >&2
+            return 1
+        fi
+        mkdir -p "$_git_dir/hooks"
+        cat > "$_git_dir/hooks/pre-commit" <<'HOOKEOF'
+#!/usr/bin/env bash
+repo_root="$(git rev-parse --show-toplevel 2>/dev/null || echo "$PWD")"
+if ! typeset -f _check_compat >/dev/null 2>&1 && [[ -f "$repo_root/shared/.bash_checker" ]]; then
+    source "$repo_root/shared/.bash_checker" 2>/dev/null
+fi
+if typeset -f _check_compat >/dev/null 2>&1; then
+    _check_compat "$repo_root" || exit 1
+fi
+HOOKEOF
+        chmod +x "$_git_dir/hooks/pre-commit" 2>/dev/null
+        echo "✅ Installed pre-commit hook to: $_git_dir/hooks/pre-commit"
+        return 0
+    fi
+    echo "🔍 Scanning dual-shell (Bash + Zsh) compatibility in: $target" >&2
+
+    local -a _files=()
+    if [[ -f "$target" ]]; then
+        _files+=("$target")
+    else
+        local _raw_files
+        _raw_files=$(find "$target" -type f \( -name "*.sh" -o -name "*.bash" -o -name "*.zsh" -o -name ".*.sh" -o -name ".bash*" \) \
+            ! -path "*/.git/*" ! -path "*/node_modules/*" ! -path "*/.cache/*" 2>/dev/null | sort)
+        if [[ -n "$_raw_files" ]]; then
+            while IFS= read -r _hit; do
+                [[ -n "$_hit" ]] && _files+=("$_hit")
+            done <<< "$_raw_files"
+        fi
+    fi
+
+    local file_count="${#_files[@]}"
+    if (( file_count == 0 )); then
+        echo "✅ No shell script files found to scan."
+        return 0
+    fi
+
+    local issues=0
+    local f _c_matches line_num line_text _entry
+
+    for f in "${_files[@]}"; do
+        [[ -f "$f" ]] || continue
+
+        # 1. Array 0-index: ${var[0]} (excluding BASH_SOURCE, FUNCNAME, test_arr)
+        # Negative lookbehind-equivalent: skip ':-${var[0]}' — that is the
+        # SAFE 1-index-first form this checker itself recommends.
+        _c_matches=$(command grep -nE '\$\{([a-zA-Z_][a-zA-Z0-9_]*)\[0\]\}' "$f" 2>/dev/null \
+            | command grep -vE ':-\$\{[a-zA-Z_][a-zA-Z0-9_]*\[0\]\}')
+        if [[ -n "$_c_matches" ]]; then
+            while IFS= read -r _entry; do
+                [[ -z "$_entry" ]] && continue
+                line_num="${_entry%%:*}"
+                line_text="${_entry#*:}"
+                # Exclusions:
+                #  *BASH_SOURCE*|*FUNCNAME*|*test_arr* — legitimately 0-indexed
+                #  *'\\${'* — backslash-escaped, so it is literal text inside a
+                #    string (e.g. this checker's own "Fix :" help line), never
+                #    an actual array expansion at runtime.
+                case "$line_text" in *BASH_SOURCE*|*FUNCNAME*|*test_arr*) continue ;; esac
+                # NOTE: pattern is *'\'*'${'* (backslash, then ${) — the
+                # single-quoted '\\${' is TWO backslashes and never matches.
+                case "$line_text" in *'\'*'${'*) continue ;; esac
+                echo "⚠️  [0-INDEX] $f:$line_num"
+                echo "   Line: $line_text"
+                echo "   Risk: Evaluates to EMPTY STRING in Zsh (1-based index)"
+                echo "   Fix : Use '\${var[1]:-\${var[0]}}' or 'set -- \"\${var[@]}\"'"
+                echo ""
+                issues=$(( issues + 1 ))
+            done <<< "$_c_matches"
+        fi
+
+        # 2. read -ra (Bash-only flag)
+        _c_matches=$(command grep -nE '\bread[[:space:]]+-[a-zA-Z]*a[[:space:]]' "$f" 2>/dev/null)
+        if [[ -n "$_c_matches" ]]; then
+            while IFS= read -r _entry; do
+                [[ -z "$_entry" ]] && continue
+                line_num="${_entry%%:*}"
+                line_text="${_entry#*:}"
+                _is_comment_line "$line_text" && continue
+                echo "⚠️  [READ-RA] $f:$line_num"
+                echo "   Line: $line_text"
+                echo "   Risk: Causes 'bad option: -a' error in Zsh"
+                echo "   Fix : Use 'while IFS= read -r' or '_split_pipe'"
+                echo ""
+                issues=$(( issues + 1 ))
+            done <<< "$_c_matches"
+        fi
+
+        # 3. mapfile / readarray (Bash 4+ only)
+        _c_matches=$(command grep -nE '^[[:space:]]*(mapfile|readarray)[[:space:]]' "$f" 2>/dev/null)
+        if [[ -n "$_c_matches" ]]; then
+            while IFS= read -r _entry; do
+                [[ -z "$_entry" ]] && continue
+                line_num="${_entry%%:*}"
+                line_text="${_entry#*:}"
+                _is_comment_line "$line_text" && continue
+                case "$line_text" in *'mapfile()'*) continue ;; esac
+                echo "⚠️  [MAPFILE] $f:$line_num"
+                echo "   Line: $line_text"
+                echo "   Risk: 'mapfile/readarray' is Bash 4+ only (undefined or returns 1-based array in Zsh)"
+                echo "   Fix : Use 'while IFS= read -r _l; do arr+=(\"\$_l\"); done < ...'"
+                echo ""
+                issues=$(( issues + 1 ))
+            done <<< "$_c_matches"
+        fi
+
+        # 4. declare -n (Nameref, Bash 4.3+ only)
+        _c_matches=$(command grep -nE '^[[:space:]]*declare[[:space:]]+-[a-zA-Z]*n[[:space:]]' "$f" 2>/dev/null)
+        if [[ -n "$_c_matches" ]]; then
+            while IFS= read -r _entry; do
+                [[ -z "$_entry" ]] && continue
+                line_num="${_entry%%:*}"
+                line_text="${_entry#*:}"
+                _is_comment_line "$line_text" && continue
+                echo "⚠️  [NAMEREF] $f:$line_num"
+                echo "   Line: $line_text"
+                echo "   Risk: 'declare -n' (nameref) is unsupported in Zsh"
+                echo "   Fix : Use 'typeset -g', eval, or pass positional arguments"
+                echo ""
+                issues=$(( issues + 1 ))
+            done <<< "$_c_matches"
+        fi
+    done
+
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    if (( issues == 0 )); then
+        echo "✅ Dual-shell compatibility check passed ($file_count files scanned, 0 issues)."
+        return 0
+    else
+        echo "❌ Found $issues dual-shell portability issue(s) across $file_count files."
+        return 1
+    fi
+}
+
+_check_usage() {
+    # printf is a bash builtin — zero external dependency
+    printf >&2 '%s\n' \
+        'usage: _check_ <mode> [args...] OR _check_ <func> [args...]' \
+        '  -o|--object  -f <path> [cmd...]   test object then run cmd (default: source)' \
+        '  -s|--shell   [bash|zsh]           guard shell (no arg prints current shell)' \
+        '  -j|--JENV    [--set|--force]      ensure JOE_ENV' \
+        '  -f|--FUNCTION <func|array>... [-d dir] ensure function(s) loaded' \
+        '  -r|--run     <func> [args...]     lazy-load function and execute with args' \
+        '  <func> [args...]                  lazy-load function (and execute if args given)' \
+        '  -p|--PKG     [-c] <pkg> [bin] ... ensure package installed' \
+        '  -c|--compat  [dir|file]           scan dual-shell (bash+zsh) compatibility traps' \
+        '  -h|--help                         this help'
+}
+
+_check_(){
+    # no-arg guard (shift without guard would error under set -e)
+    if [[ $# -eq 0 ]]; then _check_usage; return 1; fi
+
+    local mode="${1:-}"
+    shift || true
+
+    # -- main
+    case "$mode" in
+        -o|--object)
+            if ! typeset -f _check >/dev/null 2>&1; then
+                echo "[_check_ -o] _check unavailable (source .bash_helper first)" >&2
+                return 127
+            fi
+            _check "$@"
+            ;;
+        -s|--shell)     _check_shell "$@" ;;
+        -j|--JENV)
+            if ! typeset -f _check_JOE_ENV >/dev/null 2>&1; then
+                echo "[_check_ -j] _check_JOE_ENV unavailable (source .bash_helper first)" >&2
+                return 127
+            fi
+            _check_JOE_ENV "$@"
+            ;;
+        -f|--FUNCTION)  _check_func_safe "$@" ;;
+        -r|--run)
+            local _target_fn="${1:-}"
+            shift || true
+            [[ -z "$_target_fn" ]] && { echo "[_check_ -r] no function name provided" >&2; return 1; }
+            if ! _is_func_loaded "$_target_fn"; then
+                _check_func_safe "$_target_fn" || return $?
+            fi
+            "$_target_fn" "$@"
+            ;;
+        -p|--PKG)       _check_pkg "$@" ;;
+        -c|--compat)    _check_compat "$@" ;;
+        -h|--help|help) _check_usage; return 0 ;;
+        -js|--JENV-short) _CJOE "$@" ;;
+        *)
+            # Smart lazy-load: If first argument is not a flag, treat as function
+            if [[ "$mode" != -* ]]; then
+                if ! _is_func_loaded "$mode"; then
+                    _check_func_safe "$mode" || return $?
+                fi
+                if [[ $# -gt 0 ]]; then
+                    "$mode" "$@"
+                    return $?
+                fi
+                return 0
+            fi
+            _check_usage; return 1 ;;
+    esac
+}
+
+_C(){				
+						_check_ "$@"
+}
+
+get_real_width() {
+    local text="$1"
+    # 1. Strip Bash PS1 prompt delimiters (\[ \])
+    # "${text//\[/}" is a "bad pattern" under zsh, but the character-class
+    # form that replaced it is WRONG IN BASH: `\[` inside a bash pattern is
+    # an escaped literal, so nothing is removed and the backslashes survive
+    # ("\[\]|\[\]" measured 5 instead of 1). Two separate passes work in
+    # both shells.
+    text="${text//\\[/}"
+    text="${text//\\]/}"
+
+    # 2. ??? ANSI escape codes ??? OSC sequences
+    local plain_text
+    plain_text=$(printf '%s' "$text" | sed -E $'s/\x1b\\[[0-9;?]*[a-zA-Z]//g; s/\x1b\\][^\x07\x1b]*(\x07|\x1b\\\\)//g')
+
+    # 3. ????? display column width (CJK/Emoji/Wide = 2, Combining mark = 0, ???? = 1)
+    if command -v python3 >/dev/null 2>&1; then
+        python3 -c '
+import sys, unicodedata
+text = sys.argv[1]
+w = 0
+for ch in text:
+    if unicodedata.combining(ch):
+        continue
+    eaw = unicodedata.east_asian_width(ch)
+    w += 2 if eaw in ("W", "F") else 1
+print(w)
+' "$plain_text" 2>/dev/null || echo "${#plain_text}"
+    else
+        echo "${#plain_text}"
+    fi
+}
+
+_w(){
+	get_real_width "$@"
+}
+
+_CJOE(){
+    local cmd=""
+    case "$JOE_ENV" in
+        GIT-BASH) cmd=$1; $cmd ;;
+        WSL) cmd=$2; $cmd ;;
+        WSL2) cmd=$3; $cmd ;;
+    esac    
+
+}

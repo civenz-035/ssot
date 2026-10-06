@@ -1,0 +1,10 @@
+#!/bin/bash
+# ============================================================
+# .bash_checker — SSOT Guard Dispatcher Shim -> shared/.bash_checker
+# ============================================================
+_SSOT_ROOT="${SSOT:-${SCRIPTS_PATH:-$HOME/ssot}}"
+if [[ -f "$_SSOT_ROOT/shared/.bash_checker" ]]; then
+    source "$_SSOT_ROOT/shared/.bash_checker" "$@"
+elif [[ -f "${BASH_SOURCE[0]%/*}/shared/.bash_checker" ]]; then
+    source "${BASH_SOURCE[0]%/*}/shared/.bash_checker" "$@"
+fi

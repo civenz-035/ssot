@@ -1,0 +1,10 @@
+#!/bin/bash
+# ============================================================
+# .bash_helper — SSOT Compatibility Shim -> shared/.bash_helper
+# ============================================================
+_SSOT_ROOT="${SSOT:-${SCRIPTS_PATH:-$HOME/ssot}}"
+if [[ -f "$_SSOT_ROOT/shared/.bash_helper" ]]; then
+    source "$_SSOT_ROOT/shared/.bash_helper" "$@"
+elif [[ -f "${BASH_SOURCE[0]%/*}/shared/.bash_helper" ]]; then
+    source "${BASH_SOURCE[0]%/*}/shared/.bash_helper" "$@"
+fi

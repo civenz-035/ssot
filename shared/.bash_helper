@@ -1,0 +1,596 @@
+#!/bin/bash
+# -- source color module which is live isolated from joe.sh
+if ! command -v _color_render >/dev/null 2>&1; then
+    if [ -f "$HOME/ssot/core/01-colors.sh" ]; then
+        source "$HOME/ssot/core/01-colors.sh" 2>/dev/null
+    fi
+fi
+# ==========================================
+# 🚩 VERBOSE FLAG — ควบคุม debug output ของ auto_source / find_unsource_func
+#
+#   SSOT_VERBOSE=1   → debug mode  : แสดง 🔍 Searching / ✅ Sourced ทุก message
+#   SSOT_VERBOSE=0   → silent mode : เงียบ (everyday use, default)
+#
+# Toggle on-the-fly:
+#   export SSOT_VERBOSE=1   # เปิด debug
+#   export SSOT_VERBOSE=0   # ปิด  (หรือ unset SSOT_VERBOSE)
+# ==========================================
+: "${SSOT_VERBOSE:=0}"   # default = silent
+
+# _vlog — print iff SSOT_VERBOSE=1  (to stderr to not pollute subshell capture)
+_vlog() { [[ "${SSOT_VERBOSE:-0}" == "1" ]] && echo "$@" >&2; }
+
+# ==========================================
+# 1. นิยามฟังก์ชัน _check() (เวอร์ชัน Cross-Shell)
+# ==========================================
+# Cache for lazy-sourcing in _check()
+if [[ -z "${_SSOT_SOURCED_FILES_INIT:-}" ]]; then
+    if [ -n "${ZSH_VERSION:-}" ]; then
+        typeset -gA _SSOT_SOURCED_FILES 2>/dev/null || true
+    else
+        declare -gA _SSOT_SOURCED_FILES 2>/dev/null || true
+    fi
+    _SSOT_SOURCED_FILES_INIT=1
+fi
+
+_check() {
+    local type="${1:--f}"
+    local tar_input="${2:-}"
+    local cmd="${3:-source}"
+    local item=""
+    [ $# -ge 3 ] && shift 3 || shift $#
+
+    _check_exec() {
+        local _t="$1"
+        shift
+        if [[ "$cmd" == "source" || "$cmd" == "." ]]; then
+            if [[ -n "${_SSOT_SOURCED_FILES[$_t]:-}" ]]; then
+                return 0
+            fi
+            if test "$type" "$_t"; then
+                "$cmd" "$_t" "$@"
+                local _rc=$?
+                [[ $_rc -eq 0 ]] && _SSOT_SOURCED_FILES["$_t"]=1
+                return $_rc
+            fi
+            return 1
+        fi
+        test "$type" "$_t" && "$cmd" "$_t" "$@"
+    }
+
+    if [ -n "${ZSH_VERSION:-}" ]; then
+        if [[ "${(tP)tar_input}" == *array* || "${(tP)tar_input}" == *association* ]]; then
+            setopt LOCAL_OPTIONS
+            unsetopt KSH_ARRAYS 2>/dev/null
+            for item in "${(@P)tar_input}"; do
+                _check_exec "$item" "$@"
+            done
+            return 0
+        fi
+    else
+        if [[ "$(declare -p "$tar_input" 2>/dev/null)" =~ ^declare\ -[aA] ]]; then
+            local -n ref="$tar_input"
+            for item in "${ref[@]}"; do
+                _check_exec "$item" "$@"
+            done
+            return 0
+        fi
+    fi
+
+    _check_exec "$tar_input" "$@"
+}
+#-- helper for  functin, alias unbinding
+unbinding(){
+    local mode=""
+    local target=""
+
+    # parse flags
+    while [[ "${1:-}" == -* ]]; do
+        case "$1" in
+            -a|-f|-af) mode="${1#-}"; shift ;;
+            *) break ;;
+        esac
+    done
+    target="${1:-}"
+    [ -z "$target" ] && return 0
+
+    # ตรวจ binding type ตาม shell
+    local has_alias=0 has_func=0
+    case "$JOE_ENV" in
+        TERMUX|MUMU)
+            local wt
+            wt=$(whence -w "$target" 2>/dev/null | cut -d" " -f2)
+            [ "$wt" = "alias" ]    && has_alias=1
+            [ "$wt" = "function" ] && has_func=1
+            ;;
+        WSL|GIT-BASH)
+            local tt
+            tt=$(type -t "$target" 2>/dev/null)
+            [ "$tt" = "alias" ]    && has_alias=1
+            [ "$tt" = "function" ] && has_func=1
+            ;;
+        *)
+            c 198 b "unknown JOE_ENV: $JOE_ENV"; return 1
+            ;;
+    esac
+
+    # ลบตาม mode
+    local removed=0
+    case "$mode" in
+        a)
+            if (( has_alias )); then
+                unalias "$target" 2>/dev/null && removed=1
+                c 45 b "done unalias"; cn 10 b "  $target"
+            else
+                cn 190 b "⚠ '$target' has no alias"; return 1
+            fi
+            ;;
+        f)
+            if (( has_func )); then
+                unset -f "$target" 2>/dev/null && removed=1
+                c 45 b "done unfunction"; cn 10 b "  $target"
+            else
+                cn 190 b "⚠ '$target' has no function"; return 1
+            fi
+            ;;
+        af)
+            if (( has_alias )); then
+                unalias "$target" 2>/dev/null && removed=1
+                c 45 b "done unalias"; cn 10 b "  $target"
+            fi
+            if (( has_func )); then
+                unset -f "$target" 2>/dev/null && removed=1
+                c 45 b "done unfunction"; cn 10 b "  $target"
+            fi
+            (( removed )) || { c 198 b "⚠ '$target' is not an alias/function"; return 1; }
+            ;;
+        *)
+            # default: ลบตัวที่เจอตัวแรก
+            if (( has_alias )); then
+                unalias "$target" 2>/dev/null && removed=1
+                c 45 b "done unalias"; cn 10 b "  $target"
+            elif (( has_func )); then
+                unset -f "$target" 2>/dev/null && removed=1
+                c 45 b "done unfunction"; cn 10 b "  $target"
+            else
+                c 198 b "⚠ '$target' is not an alias/function"; return 1
+            fi
+            ;;
+    esac
+}
+#-- helper for source in subforder
+guard() {
+    local target
+    local loaded_count=0
+
+    for target in "$@"; do
+        # 1. ถ้าเป็นโฟลเดอร์ ให้ค้นหาไฟล์ *.sh ในโฟลเดอร์ย่อยทั้งหมด (Recursive)
+        if [ -d "$target" ]; then
+            while IFS= read -r file; do
+                if [ -f "$file" ]; then
+                    source "$file"
+                    ((loaded_count++))
+                fi
+            done < <(find "$target" -type f -name "*.sh" 2>/dev/null | sort)
+
+        # 2. ถ้าเป็นไฟล์ธรรมดา ให้ source ได้เลย
+        elif [ -f "$target" ]; then
+            source "$target"
+            ((loaded_count++))
+        fi
+    done
+
+    # 3. ถ้าหาไฟล์ไม่เจอเลยทั้งในโฟลเดอร์และไฟล์ที่ระบุ ให้แจ้งเตือน
+    if [ "$loaded_count" -eq 0 ]; then
+        echo -e "\033[33m[WARNING]\033[0m No valid .sh files found to source from: $*" >&2
+        return 1
+    fi
+}
+# -- shell switch
+# Sets the LOGIN shell permanently (passwd entry) AND swaps the running
+# session. Use `sws b|bash|z|zsh`, or `sws` with no arg to toggle.
+#
+# BUG FIXED 2026-10-03: this used to switch only the current session
+# because the chsh call silently failed:
+#   * `chsh -s ...`       -> "PAM: Authentication failure" (no TTY/password)
+#   * `sudo chsh -s ...`  -> exits 0 but writes NOTHING to /etc/passwd,
+#                            so the change evaporated on the next login
+# Verified on WSL: after `sudo chsh -s /usr/bin/bash`, passwd still said
+# /usr/bin/zsh. `usermod -s` writes correctly and persists.
+sws(){
+    local shell_type="${1:-}"
+
+    # ── Resolve the target shell to an ABSOLUTE path ─────────────
+    # Termux's chsh rejects relative paths (".../usr/bin//bin/bash").
+    _sws_find_shell(){
+        local sh="${1:-}" p
+        [[ -z "$sh" ]] && return 1
+        p="$(command -v "$sh" 2>/dev/null)"
+        if [[ -z "$p" || ! -x "$p" ]]; then
+            cn red b "shell not found: $sh"
+            return 1
+        fi
+        printf '%s' "$p"
+    }
+
+    # ── Read the shell currently recorded as the DEFAULT ─────────
+    # Termux keeps no passwd login shell: `chsh` is a shell script that
+    # symlinks $HOME/.termux/shell -> $PREFIX/bin/<shell>. Elsewhere the
+    # default lives in the passwd entry. Check Termux first so we never
+    # report a Linux passwd shell on Android.
+    _sws_current_login_shell(){
+        local u="${USER:-$(id -un)}" line
+        if [[ "$JOE_ENV" == "TERMUX" || "$JOE_ENV" == "MUMU" || "$JOE_ENV" == "OPPO" || "$JOE_ENV" == "ACODEX" ]]; then
+            [[ -L "$HOME/.termux/shell" ]] && readlink -f "$HOME/.termux/shell"
+            return 0
+        fi
+        if command -v getent >/dev/null 2>&1; then
+            line="$(getent passwd "$u" 2>/dev/null)"
+        elif [[ -r /etc/passwd ]]; then
+            line="$(grep "^${u}:" /etc/passwd 2>/dev/null | head -1)"
+        fi
+        [[ -n "$line" ]] && printf '%s' "${line##*:}"
+    }
+
+    _sws_is_termux(){
+        [[ "$JOE_ENV" == "TERMUX" || "$JOE_ENV" == "MUMU" \
+           || "$JOE_ENV" == "OPPO" || "$JOE_ENV" == "ACODEX" ]]
+    }
+
+    # ── Persist the login shell ──────────────────────────────────
+    # Order matters: usermod first (works on WSL/Linux, silent no-op risk
+    # with chsh), then chsh as the Termux/Android path.
+    _sws_set_login_shell(){
+        local abs_path="$1" before after
+        before="$(_sws_current_login_shell)"
+
+        if _sws_is_termux; then
+            # Termux chsh prepends $PREFIX/bin to whatever it is given, so
+            # an absolute path becomes ".../bin//data/.../bin/zsh" and it
+            # refuses. Pass the bare name.
+            chsh -s "$(basename "$abs_path")" 2>/dev/null
+        else
+            if command -v usermod >/dev/null 2>&1; then
+                local -a _elev=()
+                # WSL/GIT-BASH need root; native Linux userland does not.
+                if [[ "$JOE_ENV" == "WSL" || "$JOE_ENV" == "WSL2" || "$JOE_ENV" == "GIT-BASH" ]]; then
+                    command -v sudo >/dev/null 2>&1 && _elev=(sudo)
+                fi
+                "${_elev[@]}" usermod -s "$abs_path" "$(id -un)" 2>/dev/null
+            fi
+            # Verify + fall back to chsh for boxes without usermod.
+            after="$(_sws_current_login_shell)"
+            if [[ "$after" != "$abs_path" ]] && command -v chsh >/dev/null 2>&1; then
+                chsh -s "$abs_path" 2>/dev/null
+                after="$(_sws_current_login_shell)"
+            fi
+        fi
+        after="$(_sws_current_login_shell)"
+
+        # ── VERIFY: never claim success on a silent failure ───────
+        if [[ "$after" == "$abs_path" ]]; then
+            cn 10 b "default shell -> ${abs_path}"
+        else
+            cn 196 b "could NOT change default shell (still: ${after:-unknown})"
+            cn 244 d "   chsh/usermod failed — this session will still switch"
+            return 1
+        fi
+    }
+
+    # ── Switch this session too ─────────────────────────────────
+    _sws_switch_session(){
+        local abs_path="$1"
+        export _SHELL="$(basename "$abs_path")"
+        export SHELL="$abs_path"
+        cn 226 b "↳ reloading session now..."
+        exec "$abs_path" -l
+    }
+
+    # ── No-arg: interactive toggle ──────────────────────────────
+    if [[ "$#" -eq 0 ]]; then
+        local cur="${_SHELL:-${SHELL##*/}}"
+        c 198 b "SHELL : "
+        cn ora b "$cur"
+        local target confirm
+        if [[ "$cur" == "bash" ]]; then
+            read -p "$(_ep "SWITCH TO ZSH  (y/n): ")" confirm
+            target="zsh"
+        elif [[ "$cur" == "zsh" ]]; then
+            read "confirm?$(_ep "SWITCH TO BASH (y/n): ")" confirm
+            target="bash"
+        else
+            cn red b "Unknown shell: $cur"
+            return 1
+        fi
+        [[ "$confirm" =~ ^[Yy]$ ]] || return 0
+        local abs
+        abs="$(_sws_find_shell "$target")" || return 1
+        _sws_set_login_shell "$abs" || return 1
+        _sws_switch_session "$abs"
+        return
+    fi
+
+    # ── Direct arg: sws b / sws z ──────────────────────────────
+    local target_shell
+    case "$shell_type" in
+        b|bash) target_shell="bash" ;;
+        z|zsh)  target_shell="zsh"  ;;
+        *)      cn red b "Usage: sws [b|bash|z|zsh]"; return 1 ;;
+    esac
+
+    local abs_path
+    abs_path="$(_sws_find_shell "$target_shell")" || return 1
+    _sws_set_login_shell "$abs_path" || return 1
+    _sws_switch_session "$abs_path"
+}
+# -- shell detection
+cshell() {
+    local active_shell="${_SHELL:-}"
+    if [[ -z "$active_shell" ]]; then
+        if [[ -n "${ZSH_VERSION:-}" ]]; then
+            active_shell="zsh"
+        else
+            active_shell="bash"
+        fi
+    fi
+
+    if [[ "$#" -eq 0 ]]; then
+        cn ora b "$active_shell"
+        return 0
+    fi
+
+    local mode="${1:-}"
+    local zsh_cmd="${2:-}"
+    local bash_cmd="${3:-}"
+
+    case "$mode" in
+        -d|--detect)
+            if [[ "$active_shell" == "zsh" ]]; then
+                eval "$zsh_cmd"
+            else    
+                eval "$bash_cmd"
+            fi
+            ;;
+    esac
+}
+
+# ============================================================
+# _check_JOE_ENV() — SSOT Canonical Environment Detector
+# ============================================================
+# Usage:
+#   _check_JOE_ENV            → echo detected JOE_ENV (stdout)
+#   _check_JOE_ENV --set      → detect + export JOE_ENV (only if not set)
+#   _check_JOE_ENV --force    → detect + export JOE_ENV (always overwrite)
+#
+# Detection order (CRITICAL — do NOT reorder):
+#   1. Termux / MuMu  (/data/data/com.termux exists)
+#   2. ACODEX         (apk) ← MUST be before WSL check
+#   3. WSL            (/proc/version contains "microsoft")
+#   4. GIT-BASH       ($MSYSTEM / $OSTYPE=msys)
+#   5. UNKNOWN
+#
+# NOTE: ACODEX runs on WSL filesystem → /proc/version has "microsoft"
+#       → apk check must come first to avoid false WSL detection
+# ============================================================
+_check_JOE_ENV() {
+    local _mode="${1:-}"   # --set | --force | (empty = just echo)
+    local _result=""
+
+    # Respect existing $JOE_ENV unless --force
+    if [[ "$_mode" != "--force" && -n "${JOE_ENV:-}" ]]; then
+        [[ "$_mode" == "--set" ]] && export JOE_ENV="${JOE_ENV}"
+        echo "$JOE_ENV"
+        return 0
+    fi
+
+    # Auto-detect
+    if [[ -d "/data/data/com.termux" ]]; then
+        local _model _brand _hardware _display
+        _model="$(getprop ro.product.model 2>/dev/null)"
+        _brand="$(getprop ro.product.brand 2>/dev/null)"
+        _hardware="$(getprop ro.hardware 2>/dev/null)"
+        _display="$(getprop ro.build.display.id 2>/dev/null)"
+        if echo "$_model $_brand $_display" | grep -qiE '(MuMu|vphone)'; then
+            _result="MUMU"
+        elif echo "$_hardware" | grep -qiE '(goldfish|ranchu)'; then
+            _result="MUMU"
+        else
+            _result="TERMUX"
+        fi
+    elif command -v apk >/dev/null 2>&1; then
+        _result="ACODEX"
+		elif command -v apk >/dev/null 2>&1; then
+        if grep -qi microsoft /proc/version 2>/dev/null; then
+       		 if [[ $(id -un) == "joez" ]]; then
+            _result="WSL2"
+  	       else    
+            _result="WSL"
+       		 fi
+				else
+						_result="USERLAND"
+				fi
+    elif [[ -n "${MSYSTEM:-}" ]] || [[ "${OSTYPE:-}" == "msys" ]]; then
+        _result="GIT-BASH"
+    else
+        _result="UNKNOWN"
+    fi
+
+    # Export if requested
+    if [[ "$_mode" == "--set" || "$_mode" == "--force" ]]; then
+        export JOE_ENV="$_result"
+    fi
+
+    echo "$_result"
+}
+# ==========================================
+# Main Functions
+# ==========================================
+
+# find_unsource_func — ค้นหาไฟล์ที่มี function นั้น
+# รองรับ: single result (return path) / multi result (interactive picker)
+# Usage: find_unsource_func <func_name> [search_dir]
+
+find_unsource_func() {
+    local func_name="$1"
+    local search_dir="${2:-${SSOT:-${repository:-$HOME}}}"
+
+    if [ -z "$func_name" ]; then
+        echo "Usage: find_unsource_func <function_name> [directory]" >&2
+        return 1
+    fi
+
+    if [ ! -d "$search_dir" ]; then
+        echo "Search directory not found: $search_dir" >&2
+        return 1
+    fi
+
+    _vlog "🔍 Searching for function '$func_name' in '$search_dir'..."
+
+    # เก็บ pattern ใน variable (หลีกเลี่ยงปัญหา quote ใน zsh)
+    # word-boundary: function name must end at space, '(' or EOL (prevents over-matching short names like 'm')
+    local _pat="(^[[:space:]]*(function[[:space:]]+${func_name}([[:space:](]|$)|${func_name}[[:space:]]*\\(\\)))"
+
+    # portable: ใช้ command substitution + here-string (bash+zsh compatible)
+    local _results
+    _results=$(\grep -RlE "$_pat" "$search_dir" 2>/dev/null | sort)
+
+    local -a matches
+    matches=()
+    if [[ -n "$_results" ]]; then
+        while IFS= read -r _hit; do
+            [[ -n "$_hit" ]] && matches+=("$_hit")
+        done <<< "$_results"
+    fi
+
+    case "${#matches[@]}" in
+        0)
+            _vlog "❌ Function '$func_name' not found in '$search_dir'"
+            return 1
+            ;;
+        1)
+            echo "${matches[1]:-${matches[0]}}"
+            ;;
+        *)
+            _vlog "🔀 Found ${#matches[@]} files containing '$func_name':"
+            if command -v fzf >/dev/null 2>&1; then
+                local selected
+                selected=$(printf '%s\n' "${matches[@]}" | \
+                    fzf --prompt="Source which file? > " \
+                        --height=40% \
+                        --border \
+                        --preview="grep -n $func_name {}" \
+                        --preview-window=down:5)
+                [[ -n "$selected" ]] && echo "$selected" || return 1
+            else
+                local choice
+                select choice in "${matches[@]}" "Cancel"; do
+                    [[ "$choice" == "Cancel" || -z "$choice" ]] && return 1
+                    echo "$choice"
+                    return 0
+                done
+            fi
+            ;;
+    esac
+}
+alias fus='find_unsource_func'
+auto_source() {
+    local func="${1:-}"
+
+    [[ -n "$func" ]] || {
+        echo "Error: Please provide function name" >&2
+        return 1
+    }
+
+    # ตรวจสอบว่าฟังก์ชันถูกโหลดไว้แล้วหรือยัง (รองรับทั้ง Bash/Zsh)
+    _is_func_loaded "$func" && return 0
+
+    local script_path
+    script_path="$(find_unsource_func "$func" "${2:-${SSOT:-$repository}}")" || return 1
+
+    [[ -n "$script_path" ]] || {
+        echo "Error: Function '$func' not found" >&2
+        return 1
+    }
+
+    # สั่ง source ไฟล์สคริปต์ที่เจอ
+    if source "$script_path"; then
+        _vlog "✅ Sourced (${CURRENT_SHELL:-$_SHELL}): $script_path"
+    else
+        echo "❌ Failed to source: $script_path" >&2
+        return 1
+    fi
+}
+alias ausf='auto_source'
+
+# ==========================================
+# _guard_func — Error guard สำหรับใช้ใน scripts
+# ตรวจสอบว่า function พร้อมใช้ก่อนเรียก — ถ้ายังไม่โหลดให้ auto-load
+# Usage: _guard_func <func_name> [search_dir] && <func_name> "$@"
+# Examples:
+#   _guard_func "fm_cp" && fm_cp "$src" "$dst"
+#   _guard_func "my_func" || exit 1
+# ==========================================
+_check_func() {
+    local -a _funcs=()
+    local context=""
+    local item
+
+    # detect context directory if passed as last argument
+    if [[ $# -ge 2 && -d "${!#}" ]]; then
+        local _last="${!#}"
+        local _is_arr=0
+        if [[ -n "${ZSH_VERSION:-}" ]]; then
+            [[ "${(tP)_last}" == *array* || "${(tP)_last}" == *association* ]] && _is_arr=1
+        else
+            [[ "$(declare -p "$_last" 2>/dev/null)" =~ ^declare\ -[aA] ]] && _is_arr=1
+        fi
+        if [[ $_is_arr -eq 0 ]] && ! _is_func_loaded "$_last"; then
+            context="$_last"
+            set -- "${@:1:$#-1}"
+        fi
+    fi
+    context="${context:-${SSOT:-${repository:-$HOME/ssot}}}"
+
+    for item in "$@"; do
+        [[ -z "$item" ]] && continue
+        if [[ -n "${ZSH_VERSION:-}" ]]; then
+            if [[ "${(tP)item}" == *array* || "${(tP)item}" == *association* ]]; then
+                _funcs+=("${(@P)item}")
+                continue
+            fi
+        else
+            if [[ "$(declare -p "$item" 2>/dev/null)" =~ ^declare\ -[aA] ]]; then
+                local -n _arr_ref="$item"
+                _funcs+=("${_arr_ref[@]}")
+                continue
+            fi
+        fi
+        _funcs+=("$item")
+    done
+
+    if [[ ${#_funcs[@]} -eq 0 ]]; then
+        echo "❌ _check_func: No function name provided" >&2
+        return 1
+    fi
+
+    local f err=0
+    for f in "${_funcs[@]}"; do
+        [[ -z "$f" ]] && continue
+        if _is_func_loaded "$f"; then
+            continue
+        fi
+        _vlog "⚠️  '$f' not loaded — attempting auto_source..."
+        auto_source "$f" "$context" || {
+            echo "❌ Cannot proceed: '$f' unavailable" >&2
+            err=1
+        }
+    done
+    return $err
+}
+if [[ -f "${SSOT:-$HOME/ssot}/shared/.bash_checker" ]]; then
+    _check -f "${SSOT:-$HOME/ssot}/shared/.bash_checker"
+elif [[ -f "${SSOT:-$HOME/ssot}/.bash_checker" ]]; then
+    _check -f "${SSOT:-$HOME/ssot}/.bash_checker"
+fi
+
+

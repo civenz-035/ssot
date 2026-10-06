@@ -1,0 +1,162 @@
+#!/bin/bash
+# ============================================================
+# 02-aliases.sh — All Aliases (CANONICAL)
+# ============================================================
+# This is the SINGLE SOURCE OF TRUTH for all aliases.
+# Organized by category for easy maintenance.
+#
+# Stage: 5 (after all env vars and functions loaded)
+# Dependencies: 00-env.sh (for $oppc, $dbp, etc.)
+# ============================================================
+
+# ============================================================
+# NAVIGATION & SHORTCUTS
+# ============================================================
+
+
+alias ls='ls --color=auto'
+alias la='ls -A'
+alias l='ls -CF'
+
+
+
+
+
+alias dir='dir --color=auto'
+alias vdir='vdir --color=auto'
+alias grep='grep --color=auto'
+alias fgrep='fgrep --color=auto'
+alias egrep='egrep --color=auto'
+alias diff='diff --color=auto'
+alias ip='ip --color=auto'
+
+
+
+
+
+  case "$_SHELL" in 
+        zsh) unbinding -a g >/dev/null 2>&1 || true ;;
+        bash) unbinding -a ll >/dev/null 2>&1 || true ;;  
+  esac
+
+
+#alias spy='source $PYTHON_VENV'
+
+# Directory shortcuts (using env vars from 00-env.sh)
+
+alias htm='cd $htm'
+alias hwsl='cd $HWSL'
+alias hpc='cd $hpc'
+alias hmp='cd $hmp'
+alias cdbsc='cd $SSOT && pwd'
+alias dbp='cd $DASHBOARD_DIR'
+alias sdc='cd $SDCARD_PATH && pwd'
+alias cdboom='cd $boom'
+alias bkboom='cd $bk_boom'
+# ============================================================
+# CONFIGURATION & RELOADING
+# ============================================================
+
+# Shell-aware reload (zsh uses .zshrc, bash uses .bashrc)
+
+
+# ============================================================
+# SYSTEM & PROCESS MANAGEMENT
+# ============================================================
+
+alias ktmux="tmux kill-server"
+
+ll() {
+		fm ls "$@"
+	}
+
+
+
+# Syncthing (WSL)
+alias s-start="(syncthing serve --gui-address=0.0.0.0:${NODE_WSL_ST_PORT:-8385} &)"
+alias s-stop="pkill -f 'syncthing serve' && echo 'WSL Syncthing stopped'"
+alias s-status="ss -tlnp | grep ${NODE_WSL_ST_PORT:-8385} && echo 'WSL Syncthing: RUNNING' || echo 'WSL Syncthing: STOPPED'"
+alias s-log="tail -20 \"$HOME/.local/state/syncthing/syncthing.log\" 2>/dev/null || echo 'No log found'"
+
+
+
+# ============================================================
+# BUILD & COMPILATION
+# ============================================================
+
+alias fbrun="full_pipe"
+alias rbdb='rbfe && opdb'
+
+# ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬ #
+#                       alias                        #
+# ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬ #
+alias cdrp="cd $SSOT && cn 45 b "$PWD""
+alias jenv="cn lg b $JOE_ENV"
+alias repos="cn lg b $SSOT"
+alias envm='bash "$SSOT/tools/env-manager.sh"'
+alias envmgr='bash "$SSOT/tools/env-manager.sh"'
+alias b2p='bash "$SSOT/tools/b2p.sh"'
+
+
+
+# statscal — uncomment if tools/statscal/statscal.py exists
+# alias statscal='python3 "$SSOT/tools/statscal/statscal.py"'
+# alias wr='python3 "$SSOT/tools/statscal/statscal.py"'
+
+# ============================================================
+# SSOT SECRET VAULT
+# ============================================================
+# vault lock    — encrypt ~/.env → core/.env.enc
+# vault unlock  — decrypt core/.env.enc → ~/.env
+# vault status  — health + audit (exit 1 if incomplete)
+# vault init    — interactive wizard
+# vault export  — encrypted backup
+# vault lock_pubkey   — encrypt pubkeys → core/pubkeys.enc
+# vault unlock_pubkey — decrypt + install to authorized_keys
+# vault pubkey-status — show key status
+# vault pubkey-audit  — read-only authorized_keys check (corrector)
+# vault pubkey-fix    — repair this node (corrector fix-local)
+# vault pubkey-collect [--add <key>] [--scan-mesh] — merge keys into vault
+# vault pubkey-sync   — install vault keys (corrector install)
+alias vault='${SSOT:-$HOME/ssot}/bootstrap/vault/ssot-vault.sh'
+alias ssot-vault='${SSOT:-$HOME/ssot}/bootstrap/vault/ssot-vault.sh'
+alias secret-setup='${SSOT:-$HOME/ssot}/bootstrap/vault/secret-setup.sh'
+alias node-register='${SSOT:-$HOME/ssot}/bootstrap/nodes/node-register.sh'
+alias node-status='${SSOT:-$HOME/ssot}/bootstrap/nodes/node-status.sh'
+alias nodestatus='${SSOT:-$HOME/ssot}/bootstrap/nodes/node-status.sh'
+alias ns='${SSOT:-$HOME/ssot}/bootstrap/nodes/node-status.sh'
+
+# ============================================================
+# SYSTEM DASHBOARD
+# ============================================================
+# dashboard          — full dashboard (all sections)
+# dashboard --ssh    — include live SSH tests
+# dashboard --compact — minimal view
+# dashboard --json   — JSON output
+# db                 — shorthand for dashboard
+alias ssotdb='${SSOT:-$HOME/ssot}/tools/dashboard.sh'
+alias db='${SSOT:-$HOME/ssot}/tools/dashboard.sh'
+
+#ssh audit
+alias ssh-audit='bash $SSOT/bootstrap/script/ssh_audit.sh'
+
+alias py="python3"
+# --codetrans
+export b2p_path="$SSOT/bash_to_python/codetrans.py"
+alias 2py='$_py $b2p_path'
+
+# -- dice simulator (standalone repo: $DICE_SIM_DIR)
+
+alias dice="bash $DICE_SIM_DIR/bin/roll.sh"
+alias dicepy="$_py $DICE_SIM_DIR/bin/roll.py"
+alias dcf='micro $DICE_SIM_DIR/config/dice.env'
+alias cdd="cd $DICE_SIM_DIR && pwd"
+
+# -- mesh sync (git across ssot nodes)
+alias meshsync="bash $SSOT/tools/mesh-sync.sh"
+alias ms="bash $SSOT/tools/mesh-sync.sh"
+alias mst="bash $SSOT/tools/mesh-sync.sh status"
+alias msp="bash $SSOT/tools/mesh-sync.sh pull"
+alias mso="bash $SSOT/tools/mesh-sync.sh push"
+alias msfp="bash $SSOT/tools/mesh-sync.sh fanpull"
+alias msfq="bash $SSOT/tools/mesh-sync.sh fanpush"
