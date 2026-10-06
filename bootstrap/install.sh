@@ -6,10 +6,10 @@
 # Works on: Termux, MuMu, WSL, Git Bash.
 #
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/joece035/ssot-public/main/bootstrap/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/civenz-035/ssot/main/bootstrap/install.sh | bash
 #
 # Or clone first, then run:
-#   git clone https://github.com/joece035/ssot-public.git ~/ssot
+#   git clone https://github.com/civenz-035/ssot.git ~/ssot
 #   bash ~/ssot/bootstrap/install.sh
 #
 # Specify device (important for Termux — auto-detect returns "TERMUX" for all):
@@ -215,9 +215,9 @@ if [[ "$JOE_ENV" == "GIT-BASH" ]]; then
 fi
 
 # Source pkg_manager if available (repo may already be cloned)
-# Canonical path is shared/functions/ (root functions/ is legacy and does not exist)
+# Canonical path is shared/functions/
 _PKG_MGR=""
-for _cand_dir in "$HOME/ssot" "$HOME/bashscripts"; do
+for _cand_dir in "$HOME/ssot"; do
     if [[ -f "$_cand_dir/shared/functions/pkg_manager.sh" ]]; then
         _PKG_MGR="$_cand_dir/shared/functions/pkg_manager.sh"
         break
@@ -356,7 +356,7 @@ else
         rm -rf "$SSOT"
     fi
 
-    REPO_URL="https://github.com/joece035/ssot-public.git"
+    REPO_URL="https://github.com/civenz-035/ssot.git"
     if command -v git >/dev/null 2>&1; then
         git clone --depth=1 "$REPO_URL" "$SSOT" || die "git clone failed"
     else
@@ -512,31 +512,31 @@ else
     ok "SSH node keypair exists: $_NODE_KEY"
 fi
 
-# ── 3e. SSH Pubkey Vault Unlock ──
-PUBKEY_SCRIPT="$SSOT/bootstrap/nodes/pubkey-manager.sh"
+# ── 3e. SSH Pubkey Vault Unlock (corrector install) ──
+PUBKEY_SCRIPT="$SSOT/bootstrap/nodes/pubkey-corrector.sh"
 PUBKEY_VAULT="$SSOT/core/pubkeys.enc"
 
 if [[ -f "$PUBKEY_VAULT" ]] && [[ -f "$PUBKEY_SCRIPT" ]]; then
     log "Stage 3e: Installing SSH pubkeys from vault (core/pubkeys.enc)"
     if [[ -n "${SSOT_VAULT_PASS:-}" ]]; then
         # Non-interactive: passphrase provided via env var
-        if bash "$PUBKEY_SCRIPT" unlock 2>/dev/null; then
+        if bash "$PUBKEY_SCRIPT" install 2>/dev/null; then
             ok "Pubkeys installed -> ~/.ssh/authorized_keys"
         else
-            warn "Pubkey unlock failed -- run 'vault unlock_pubkey' manually"
+            warn "Pubkey unlock failed -- run 'vault pubkey-sync' manually"
         fi
     else
         # Interactive: write prompt directly to /dev/tty (avoids subshell rendering issue)
         printf "   🔑 Install SSH pubkeys from vault? [Y/n] (default: Y): " > /dev/tty
         read -r -t 15 _pk_choice < /dev/tty || _pk_choice="Y"
         if [[ "${_pk_choice:-Y}" =~ ^[Yy]?$ ]]; then
-            if bash "$PUBKEY_SCRIPT" unlock < /dev/tty; then
+            if bash "$PUBKEY_SCRIPT" install < /dev/tty; then
                 ok "Pubkeys installed -> ~/.ssh/authorized_keys"
             else
-                warn "Pubkey unlock failed -- run 'vault unlock_pubkey' manually"
+                warn "Pubkey unlock failed -- run 'vault pubkey-sync' manually"
             fi
         else
-            echo "  💡 Run 'vault unlock_pubkey' when ready"
+            echo "  💡 Run 'vault pubkey-sync' when ready"
         fi
     fi
 else
@@ -544,7 +544,7 @@ else
 fi
 
 # ── 3f. Publish this node's pubkey -> bootstrap/nodes/pending/ (Step C) ──
-# Allows the hub (WSL2) to collect all pending keys with: vault lock_pubkey --collect
+# Allows the hub (WSL2) to collect all pending keys with: vault pubkey-collect --collect
 log "Stage 3f: Publishing node pubkey for hub collection"
 _PENDING_DIR="$SSOT/bootstrap/nodes/pending"
 _NODE_LABEL="${MY_DEVICE:-$(hostname)}"
@@ -578,7 +578,7 @@ if [[ -f "$_NODE_PUB" ]]; then
             else
                 if git -C "$SSOT" commit -m "chore(pubkey): add ${_NODE_LABEL} pending pubkey" 2>/dev/null; then
                     if git -C "$SSOT" push 2>/dev/null; then
-                        ok "Pushed! Hub can now run: vault lock_pubkey --collect"
+                        ok "Pushed! Hub can now run: vault pubkey-collect --collect"
                     else
                         warn "git push failed -- run: git -C $SSOT push"
                     fi
@@ -588,7 +588,7 @@ if [[ -f "$_NODE_PUB" ]]; then
             fi
         else
             warn "No git remote -- skipping push"
-            echo "  💡 Copy $_PENDING_FILE to hub and run: vault lock_pubkey --collect"
+            echo "  💡 Copy $_PENDING_FILE to hub and run: vault pubkey-collect --collect"
         fi
     fi
 else
@@ -690,7 +690,7 @@ fi
 #   - PATH setup (~/.local/bin)
 #   - Load ~/.env (secrets & overrides)
 #   - shell_setup() — symlink shell profiles
-#   - repo() — switch between ~/bashscripts and ~/ssot
+#   - repo() — single-repo status (~/ssot only, legacy repo a/b kept as shim)
 # ============================================================
 log "Stage 4.5: Generating global environment manager"
 
@@ -701,7 +701,7 @@ ENV_TARGET="$BIN_DIR/env"
 
 # Find template: try $SSOT first, then fallback to ~/ssot
 ENV_TEMPLATE=""
-for _dir in "$SSOT" "$HOME/ssot" "$HOME/bashscripts"; do
+for _dir in "$SSOT" "$HOME/ssot"; do
     if [[ -f "$_dir/bootstrap/templates/env" ]]; then
         ENV_TEMPLATE="$_dir/bootstrap/templates/env"
         break
@@ -716,7 +716,7 @@ else
     warn "Template not found in any repo — generating minimal env"
     cat > "$ENV_TARGET" << 'ENVEOF'
 #!/bin/bash
-# ~/.local/bin/env — Global Environment Manager (minimal)
+# ~/.local/bin/env — Global Environment Manager (minimal, single-repo)
 
 # PATH setup
 case ":${PATH}:" in
@@ -727,10 +727,9 @@ esac
 # Load private env vars
 [ -f ~/.env ] && . ~/.env
 
-# SSOT auto-detection
+# SSOT auto-detection (single repo)
 if [[ -z "${SSOT:-}" ]]; then
-    [[ -d "$HOME/bashscripts" ]] && export SSOT="$HOME/bashscripts"
-    [[ -z "${SSOT:-}" && -d "$HOME/ssot" ]] && export SSOT="$HOME/ssot"
+    [[ -d "$HOME/ssot" ]] && export SSOT="$HOME/ssot"
 fi
 
 # Source joe.sh if SSOT is set

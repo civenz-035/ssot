@@ -111,13 +111,10 @@ alias b2p='bash "$SSOT/tools/b2p.sh"'
 # vault status  — health + audit (exit 1 if incomplete)
 # vault init    — interactive wizard
 # vault export  — encrypted backup
-# vault lock_pubkey   — encrypt pubkeys → core/pubkeys.enc
-# vault unlock_pubkey — decrypt + install to authorized_keys
-# vault pubkey-status — show key status
-# vault pubkey-audit  — read-only authorized_keys check (corrector)
-# vault pubkey-fix    — repair this node (corrector fix-local)
-# vault pubkey-collect [--add <key>] [--scan-mesh] — merge keys into vault
-# vault pubkey-sync   — install vault keys (corrector install)
+# vault pubkey-audit  — read-only authorized_keys check
+# vault pubkey-fix    — repair this node (fix-local)
+# vault pubkey-collect [--collect] [--add <key>] [--scan-mesh] — merge keys into vault
+# vault pubkey-sync [--fanout] [--only <node>] — install vault keys (local + optional fanout)
 alias vault='${SSOT:-$HOME/ssot}/bootstrap/vault/ssot-vault.sh'
 alias ssot-vault='${SSOT:-$HOME/ssot}/bootstrap/vault/ssot-vault.sh'
 alias secret-setup='${SSOT:-$HOME/ssot}/bootstrap/vault/secret-setup.sh'

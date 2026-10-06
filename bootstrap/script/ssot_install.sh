@@ -52,7 +52,7 @@ clone_(){
         pkg_helper "git"
     fi    
         
-    SSOT_REPO="https://github.com/joece035/ssot-public.git"
+    SSOT_REPO="https://github.com/civenz-035/ssot.git"
     SSOT_TARGET="$HOME/ssot"
 
     if [[ ! -d "$SSOT_TARGET/.git" ]]; then

@@ -108,7 +108,7 @@ export dsd="$DICE_SIM_DIR"
 export _py=${PYTHON_BIN}
 export hwsl=${HWSL}
 export hwsl2=${HWSL2}
-export bsc="$HOME/bashscripts"
+export bsc="$HOME/ssot"  # DEPRECATED: ~/bashscripts removed — bsc now aliases ~/ssot (single-repo)
 export ssot="$HOME/ssot"
 export profile=mom
 export oppc="$hpc/openclaw"
@@ -170,7 +170,7 @@ ai_bin
 
 export ENGINES_DIR="$DASHBOARD_DIR/api/engines"
 
-# Dice Simulator — standalone repo (github.com/joece035/dice-simulator)
+# Dice Simulator — standalone repo (github.com/civenz-035/dice-simulator)
 export DICE_SIM_DIR="${DICE_SIM_DIR:-$HOME/dice-simulator}"
 
 # ============================================================

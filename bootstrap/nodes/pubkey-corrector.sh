@@ -7,7 +7,7 @@
 #          encrypted vault (core/pubkeys.enc) without
 #          last-writer-wins overwrites.
 #
-# Why this exists (vs pubkey-manager.sh):
+# Design (fingerprint-first):
 #   - Dedup by FINGERPRINT (ssh-keygen -lf), not by comment.
 #     Multiple nodes share comment "node" — comment dedup
 #     skips wrong keys / adds duplicates.
@@ -15,23 +15,30 @@
 #     CRLF before validating — the exact failure seen on wsl.
 #   - collect merges (git pull + decrypt + merge + encrypt),
 #     never starts from local-only state.
-#   - install validates every key with ssh-keygen before append.
+#   - install validates every key with ssh-keygen before append,
+#     and supports --fanout (pull + install on every other node
+#     over SSH via the mesh registry).
 #   - Windows Administrators: also syncs to
 #     ProgramData/ssh/administrators_authorized_keys (best-effort).
 #
 # Workflow (run on each machine):
 #   1. Every node:  corrector fix-local   (repair authorized_keys)
-#   2. Every node:  cat ~/.ssh/id_ed25519_node.pub   (hand to collector)
-#   3. Collector:   vault pubkey-collect --add "<key>"  (per key,
-#                   after git pull — repeat for each node)
-#   4. Collector:   git add core/pubkeys.enc && git commit && git push
-#   5. Every node:  git pull && vault pubkey-sync
+#   2. New nodes:   install.sh already publishes their pubkey to
+#                   bootstrap/nodes/pending/*.pub + git push (Stage 3f) —
+#                   no manual key relay needed.
+#   3. Collector:   vault pubkey-collect --collect  (git pull + merge
+#                   pending/ + encrypt) — add --add "<key>" only for
+#                   off-mesh keys, --scan-mesh to probe live nodes.
+#   4. Collector:   git add core/pubkeys.enc bootstrap/nodes/pending && git commit && git push
+#   5. Hub:        git pull && vault pubkey-sync --fanout
+#      (local install + pull/install on every other node over SSH), or per
+#      node: git pull && vault pubkey-sync
 #   6. Every node:  ssh-keygen -R <node>; ssh -o BatchMode=yes <node> "echo ok"
 #
 # Usage:
 #   bash bootstrap/nodes/pubkey-corrector.sh audit        # read-only check
 #   bash bootstrap/nodes/pubkey-corrector.sh fix-local    # repair this node
-#   bash bootstrap/nodes/pubkey-corrector.sh collect [--add <key>] [--from <host>] [--scan-mesh]
+#   bash bootstrap/nodes/pubkey-corrector.sh collect [--collect] [--add <key>] [--from <host>] [--scan-mesh]
 #   bash bootstrap/nodes/pubkey-corrector.sh install      # decrypt vault -> authorized_keys
 #   bash bootstrap/nodes/pubkey-corrector.sh status       # vault + local overview
 #
@@ -351,7 +358,7 @@ cmd_collect() {
     _banner
     _ensure_openssl || return 1
 
-    local add_key="" fetch_host="" fetch_user="" fetch_port="22" scan_mesh=false
+    local add_key="" fetch_host="" fetch_user="" fetch_port="22" scan_mesh=false collect_pending=false
     while [[ $# -gt 0 ]]; do
         case "$1" in
             --add) add_key="${2:-}"; shift 2 ;;
@@ -360,9 +367,11 @@ cmd_collect() {
             --port) fetch_port="${2:-}"; shift 2 ;;
             --scan-mesh) scan_mesh=true; shift ;;
             --local-only) scan_mesh=false; shift ;;
+            --collect) collect_pending=true; shift ;;
             --help|-h)
-                echo "Usage: $(basename "$0") collect [--add <key>] [--from <host> --user <u> --port <p>] [--scan-mesh]"
+                echo "Usage: $(basename "$0") collect [--add <key>] [--from <host> --user <u> --port <p>] [--scan-mesh] [--collect]"
                 echo "  Default: merge LOCAL key only (no SSH — safe when mesh is down)."
+                echo "  --collect: also merge bootstrap/nodes/pending/*.pub (auto-published by install.sh)."
                 echo "  --scan-mesh: also try every node in bootstrap/nodes/*.node.env."
                 return 0 ;;
             *) cn 196 b "Unknown option: $1"; return 1 ;;
@@ -421,6 +430,24 @@ cmd_collect() {
         [[ -n "$rk" ]] && _merge_one_key "$rk" "$fetch_host" || cn 196 b "  ❌ fetch failed: $fetch_host"
     fi
 
+    if [[ "$collect_pending" == "true" ]]; then
+        local pending_dir="$SSOT/bootstrap/nodes/pending"
+        echo ""
+        cn 226 b "  📥 collecting pending/ (auto-published by install.sh)…"
+        if [[ -d "$pending_dir" ]]; then
+            local collected=0
+            for pub_file in "$pending_dir"/*.pub; do
+                [[ -f "$pub_file" ]] || continue
+                local node_name
+                node_name="$(basename "$pub_file" .pub)"
+                _merge_one_key "$(cat "$pub_file")" "pending/$node_name" && collected=$((collected+1))
+            done
+            echo "  📥 pending/ done ($collected file(s) seen — new merges shown as ✅ above)"
+        else
+            cn 226 b "  ⚠️  no pending/ directory — skipping"
+        fi
+    fi
+
     if [[ "$scan_mesh" == "true" ]]; then
         echo ""
         cn 226 b "  🔍 scanning mesh nodes (best-effort)…"
@@ -456,6 +483,7 @@ cmd_collect() {
     echo ""
     local new_pass=""
     new_pass="$(_get_pass "New Vault Passphrase: ")"
+    mkdir -p "$(dirname "$VAULT_FILE")"
     if echo "$new_pass" | openssl enc -aes-256-cbc -pbkdf2 -iter "$PBKDF2_ITER" -salt \
         -in "$tmp_merge" -out "$VAULT_FILE" -pass stdin 2>/dev/null; then
         chmod 644 "$VAULT_FILE"
@@ -469,7 +497,168 @@ cmd_collect() {
 }
 
 # ── INSTALL (vault -> authorized_keys, fingerprint merge) ──
+
+# Read NODE_<NAME>_<SUFFIX> with the same abbreviation rules as
+# tools/mesh-sync.sh::node_var (window.node.env uses NODE_WIN_*).
+# CRLF-stripped (Syncthing can inject \r into *.node.env).
+_fanout_node_var() {
+    local _nm _suffix="$2" _v="" _c _vn
+    _nm="$(printf '%s' "$1" | tr '[:lower:]-' '[:upper:]_')"
+    local _cands=("$_nm")
+    case "$_nm" in
+        WINDOW) _cands=("WIN" "WINDOW") ;;
+        WSL2)   _cands=("WSL2" "WSL_2") ;;
+        TERMUX) _cands=("TERMUX" "TM") ;;
+        MUMU)   _cands=("MUMU" "MM") ;;
+        ACODEX) _cands=("ACODEX" "A") ;;
+    esac
+    for _c in "${_cands[@]}"; do
+        _vn="NODE_${_c}_${_suffix}"
+        _v="${!_vn:-}"
+        [[ -n "$_v" ]] && break
+    done
+    _v="${_v//$'\r'/}"
+    _v="${_v//$'\n'/}"
+    printf '%s' "$_v"
+}
+
+# Run pull + install on ONE remote node. Passphrase travels inside the
+# encrypted SSH session (stdin script, never in ssh argv); it is briefly
+# visible in the remote process environment while install runs.
+# Prints the remote transcript; rc 0 = install marker seen.
+_fanout_one() {
+    local _node="$1" _host="$2" _user="$3" _port="$4" _pass="$5"
+    local _pq
+    printf -v _pq '%q' "$_pass"
+    local _script
+    _script="$(mktemp)"
+    {
+        echo 'd="${SSOT:-$HOME/ssot}"'
+        echo 'for cand in "$d" /data/data/com.termux/files/home/ssot "$HOME/ssot"; do'
+        echo '  if [ -d "$cand/.git" ]; then d="$cand"; break; fi'
+        echo 'done'
+        echo 'if [ ! -d "$d/.git" ]; then echo "FANOUT: NO_REPO"; exit 3; fi'
+        echo 'if [ ! -f "$d/bootstrap/nodes/pubkey-corrector.sh" ]; then echo "FANOUT: NO_CORRECTOR"; exit 4; fi'
+        echo 'cd "$d" || exit 3'
+        echo 'if git pull --ff-only >/dev/null 2>&1; then echo "FANOUT: PULL_OK"; else echo "FANOUT: PULL_FAIL"; fi'
+        printf 'export SSOT_VAULT_PASS=%s\n' "$_pq"
+        echo 'bash "$d/bootstrap/nodes/pubkey-corrector.sh" install 2>&1 | grep -E "installed:|decrypt failed|vault not found" || true'
+    } > "$_script"
+    local _opts=(-o BatchMode=yes -o ConnectTimeout=8 -o StrictHostKeyChecking=accept-new -o LogLevel=ERROR)
+    [[ -f "$HOME/.ssh/id_ed25519_node" ]] && _opts+=(-i "$HOME/.ssh/id_ed25519_node")
+    local _out _rc=0
+    if [[ -n "$_user" ]]; then
+        _out="$(ssh "${_opts[@]}" -p "$_port" -l "$_user" "$_host" bash -s < "$_script" 2>&1)" || _rc=$?
+    else
+        _out="$(ssh "${_opts[@]}" -p "$_port" "$_host" bash -s < "$_script" 2>&1)" || _rc=$?
+    fi
+    rm -f "$_script"
+    printf '%s' "$_out"
+    return $_rc
+}
+
+# Fan out an already-obtained passphrase: git pull + install on every
+# registered node except this one (matched via MY_DEVICE).
+_fanout_install() {
+    local _pass="${1:-}" _only="${2:-}"
+    if [[ -z "$_pass" ]]; then
+        cn 196 b "❌ fanout needs a passphrase (internal error)"
+        return 1
+    fi
+    if [[ -f "$SSOT/bootstrap/nodes/loader.sh" ]]; then
+        # shellcheck source=/dev/null
+        source "$SSOT/bootstrap/nodes/loader.sh" 2>/dev/null || true
+    fi
+    local _nodes=()
+    if [[ -n "${SSOT_REGISTERED_NODES[*]:-}" ]]; then
+        _nodes=("${SSOT_REGISTERED_NODES[@]}")
+    fi
+    if (( ${#_nodes[@]} == 0 )); then
+        cn 196 b "❌ no node registry (bootstrap/nodes/*.node.env)"
+        return 1
+    fi
+
+    cn 226 b "  📡 fanout: pull + install on mesh nodes…"
+    echo "      (passphrase travels inside encrypted SSH; briefly visible in remote process env)"
+    echo ""
+
+    local _self
+    _self="$(printf '%s' "${MY_DEVICE:-}" | tr '[:upper:]' '[:lower:]')"
+    local _only_lc
+    _only_lc="$(printf '%s' "$_only" | tr '[:upper:]' '[:lower:]')"
+    local _ok=0 _fail=0 _skip=0
+    local _n
+    for _n in "${_nodes[@]}"; do
+        local _nlc
+        _nlc="$(printf '%s' "$_n" | tr '[:upper:]' '[:lower:]')"
+        if [[ -n "$_only_lc" && "$_nlc" != "$_only_lc" ]]; then
+            continue
+        fi
+        if [[ -n "$_self" && "$_nlc" == "$_self" ]]; then
+            printf "   %-12s %s\n" "$_n" "self — done locally, skipping"
+            _skip=$((_skip+1))
+            continue
+        fi
+        local _host _user _port
+        _host="$(_fanout_node_var "$_n" HOST)"
+        _user="$(_fanout_node_var "$_n" USER)"
+        _port="$(_fanout_node_var "$_n" PORT)"
+        [[ -z "$_port" ]] && _port=22
+        if [[ -z "$_host" ]]; then
+            printf "   %-12s %s\n" "$_n" "no HOST in node profile — skipping"
+            _skip=$((_skip+1))
+            continue
+        fi
+        local _out _rc=0
+        _out="$(_fanout_one "$_n" "$_host" "$_user" "$_port" "$_pass")" || _rc=$?
+        if (( _rc != 0 )) && ! grep -q "FANOUT:" <<< "$_out"; then
+            printf "   %-12s OFFLINE (ssh failed)\n" "$_n"
+            _fail=$((_fail+1))
+        elif grep -q "FANOUT: NO_REPO" <<< "$_out"; then
+            printf "   %-12s NO_REPO (no ~/ssot checkout)\n" "$_n"
+            _fail=$((_fail+1))
+        elif grep -q "FANOUT: NO_CORRECTOR" <<< "$_out"; then
+            printf "   %-12s NO_CORRECTOR (git pull, then retry)\n" "$_n"
+            _fail=$((_fail+1))
+        elif grep -q "installed:" <<< "$_out"; then
+            local _stat
+            _stat="$(grep -o "installed:.*" <<< "$_out" | head -1)"
+            grep -q "PULL_FAIL" <<< "$_out" && _stat="$_stat (pull failed — installed from existing checkout)"
+            printf "   %-12s OK — %s\n" "$_n" "$_stat"
+            _ok=$((_ok+1))
+        else
+            printf "   %-12s FAILED:\n" "$_n"
+            printf '%s\n' "$_out" | tail -4 | sed 's/^/      /'
+            _fail=$((_fail+1))
+        fi
+    done
+
+    echo ""
+    if (( _fail == 0 )); then
+        cn 82 b "✅ fanout: $_ok ok | $_skip skipped"
+    else
+        cn 226 b "⚠️  fanout: $_ok ok | $_fail failed | $_skip skipped"
+        return 1
+    fi
+}
+
 cmd_install() {
+    local _fanout=false _only=""
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --fanout) _fanout=true; shift ;;
+            --only) _only="${2:-}"; shift 2 ;;
+            --help|-h)
+                echo "Usage: $(basename "$0") install [--fanout] [--only <node>]"
+                echo "  (no flags)     Install vault keys into this node's authorized_keys."
+                echo "  --fanout       Local install, then pull + install on every other"
+                echo "                 registered node over SSH (passphrase forwarded inside"
+                echo "                 the encrypted session; needs SSOT_VAULT_PASS or tty)."
+                echo "  --only <node>  With --fanout, target a single node."
+                return 0 ;;
+            *) cn 196 b "Unknown option: $1"; return 1 ;;
+        esac
+    done
     _banner
     _ensure_openssl || return 1
     if [[ ! -f "$VAULT_FILE" ]]; then
@@ -547,6 +736,10 @@ cmd_install() {
     cn 82 b "✅ installed: +$added | skipped: $skipped | bad in vault: $bad"
     echo "  📄 $AUTH_KEYS (backup: $backup)"
     echo ""
+
+    if [[ "$_fanout" == "true" ]]; then
+        _fanout_install "$pass" "$_only"
+    fi
 }
 
 cmd_status() {
@@ -586,14 +779,16 @@ case "${1:-}" in
         echo ""
         echo "  audit       Read-only check (exit 1 when issues found)"
         echo "  fix-local   Repair this node's authorized_keys (backup + join splits + dedup by fingerprint + self key)"
-        echo "  collect     Merge keys into vault (default: local only; --add <key> | --from <host> | --scan-mesh)"
-        echo "  install     Install vault keys into authorized_keys (fingerprint merge)"
+        echo "  collect     Merge keys into vault (default: local only; --collect = pending/ | --add <key> | --from <host> | --scan-mesh)"
+        echo "  install     Install vault keys into authorized_keys (fingerprint merge;"
+        echo "                --fanout [--only <node>] = also pull+install on other nodes)"
         echo "  status      Vault + local overview"
         echo ""
         echo "Vault workflow:"
         echo "  1. every node:  fix-local"
-        echo "  2. collector:   collect --add \"<each pubkey>\"  (+ git push)"
-        echo "  3. every node:  git pull + install"
+        echo "  2. new nodes:   (install.sh auto-publishes pending/*.pub + push)"
+        echo "  3. collector:   collect --collect  (+ git push)"
+        echo "  4. hub:         install --fanout  (or per node: git pull + install)"
         echo ""
         exit 0
         ;;

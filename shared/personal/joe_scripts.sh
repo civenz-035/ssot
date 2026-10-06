@@ -7,44 +7,30 @@
 reinstall() {
     local repo="${1:-ssot}"
     local device="${2:-}"
-    local bsc_dir="$HOME/bashscripts"
     local ssot_dir="$HOME/ssot"
     local bk_dir="$HOME/.ssot-backups/installationbk"
     local timestamp
     timestamp="$(date +%Y%m%d_%H%M%S)"
 
-    # ── Validate repo argument ──
+    # ── Single-repo mode: only ~/ssot is supported ──
     case "$repo" in
-        bsc|bashscripts) 
-            repo="bashscripts" 
+        ssot|"")
+            repo="ssot"
             ;;
-        ssot) 
-            repo="ssot" 
-            ;;
-        all|both)   
-            reinstall bashscripts "$device"
-            reinstall ssot "$device"
-            return $?
+        bsc|bashscripts|all|both)
+            echo "⚠️  '$repo' is deprecated — single-repo mode uses ~/ssot only." >&2
+            echo "   Continuing with reinstall ssot…" >&2
+            repo="ssot"
             ;;
         *)
-            echo "Usage: reinstall [ssot|bashscripts|all] [device]"
-            echo "  ssot         → reinstall ~/ssot only"
-            echo "  bashscripts  → reinstall ~/bashscripts only"
-            echo "  all          → reinstall both repos"
+            echo "Usage: reinstall [ssot] [device]"
+            echo "  ssot  → reinstall ~/ssot (single repo)"
             return 1
             ;;
     esac
 
-    # ── Determine which dir to backup (only the one being reinstalled) ──
-    local target_dir=""
-    local target_name=""
-    if [[ "$repo" == "bashscripts" ]]; then
-        target_dir="$bsc_dir"
-        target_name="bashscripts"
-    else
-        target_dir="$ssot_dir"
-        target_name="ssot"
-    fi
+    local target_dir="$ssot_dir"
+    local target_name="ssot"
     local link_list=("~/.bashrc" "~/.zshrc" "~/.local/bin/joe" "~/.local/bin/env ")
 
     # ── Remove existing symlinks ──
@@ -63,13 +49,8 @@ reinstall() {
         echo "📦 Backed up: $target_dir → $bak_path"
     fi
 
-    # ── Clone fresh ──
-    local clone_url=""
-    if [[ "$repo" == "bashscripts" ]]; then
-        clone_url="https://github.com/joece035/bashscripts-public.git"
-    else
-        clone_url="https://github.com/joece035/ssot-public.git"
-    fi
+    # ── Clone fresh (single repo) ──
+    local clone_url="https://github.com/civenz-035/ssot.git"
 
     echo "🔄 Cloning $repo → $target_dir"
     if ! git clone --depth=1 "$clone_url" "$target_dir"; then
@@ -159,15 +140,12 @@ link_bin() {
 }
 
 # ============================================================
-# sync-shared — SSOT ↔ Bashscripts Shared Files CLI
+# sync-shared — DEPRECATED shim (single-repo mode)
 # ============================================================
 sync_shared() {
     local script="${SSOT:-$HOME/ssot}/tools/sync_shared.sh"
     if [[ ! -f "$script" ]]; then
         script="${HOME}/ssot/tools/sync_shared.sh"
-    fi
-    if [[ ! -f "$script" ]]; then
-        script="${HOME}/bashscripts/tools/sync_shared.sh"
     fi
 
     if [[ -f "$script" ]]; then

@@ -330,8 +330,8 @@ copy(){
   cn 45 b "Copied '$src' to '$tar'";
   cn 206 b ""
 }
-#change remote url 
-alias gremote='git remote set-url origin git@github.com:joece035/ssot-public.git'
+#change remote url (single-repo: civenz-035/ssot)
+alias gremote='git remote set-url origin git@github.com:civenz-035/ssot.git'
 
 
 change_git(){

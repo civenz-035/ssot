@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ------------------------------------------------------------
 # File: maths.sh (Standalone Version)
-# Repository: https://github.com/joece035/maths-helper
+# Repository: https://github.com/civenz-035/maths-helper
 # ------------------------------------------------------------
 # ============================================================
 # mth — Excel-style Maths Helper (human-friendly)

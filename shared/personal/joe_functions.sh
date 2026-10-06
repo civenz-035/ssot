@@ -108,8 +108,6 @@ g(){
       git_joe "$@"
       ;;
   esac
-  
-if
 }
 
 repository_remote_url(){
@@ -120,11 +118,13 @@ repository_remote_url(){
         status)
             git status
             ;;
-        bsc)  
-            cd ~/bashscripts && git remote set-url origin https://github.com/joece035/bashscripts-public.git
-            ;;
         ssot)
-            cd ~/ssot && git remote set-url origin https://github.com/joece035/ssot-public.git
+            cd ~/ssot && git remote set-url origin https://github.com/civenz-035/ssot.git
+            ;;
+        bsc|bashscripts)
+            echo "⚠️  bashscripts repo is deprecated — single-repo mode uses ~/ssot only." >&2
+            echo "   Run 'grepo ssot' instead." >&2
+            return 1
             ;;
         *)
             git remote -v

@@ -161,21 +161,17 @@ _render_repository() {
     local icon="📁"
     local title="Repository"
 
-    # Detect current repo
+    # Detect current repo (single-repo mode: ~/ssot)
     local current_repo="${SSOT:-not set}"
     local repo_label="unknown"
-    if [[ "$current_repo" == *"/bashscripts" ]]; then
-        repo_label="a (personal)"
-    elif [[ "$current_repo" == *"/ssot" ]]; then
-        repo_label="b (shared)"
+    if [[ "$current_repo" == *"/ssot" ]]; then
+        repo_label="ssot (single)"
     else
         repo_label="custom"
     fi
 
     # Check available repos
-    local repo_a_exists=false
     local repo_b_exists=false
-    [[ -d "$HOME/bashscripts" ]] && repo_a_exists=true
     [[ -d "$HOME/ssot" ]] && repo_b_exists=true
 
     # Git status
@@ -190,7 +186,6 @@ _render_repository() {
         local json="{"
         json+="\"current\":\"${current_repo}\","
         json+="\"label\":\"${repo_label}\","
-        json+="\"bashscripts_exists\":${repo_a_exists},"
         json+="\"ssot_exists\":${repo_b_exists},"
         json+="\"git_status\":\"${git_status}\""
         json+="}"
@@ -198,26 +193,12 @@ _render_repository() {
         return
     fi
 
-    local repo_a_badge="❌"
-    local repo_b_badge="❌"
-    $repo_a_exists && repo_a_badge="✅"
-    $repo_b_exists && repo_b_badge="✅"
-
     printf "  ${_B}${_C}%s  %s${_Z}\n" "$icon" "$title"
     printf "  ${_D}┌──────────────────────────────────────────────────────┐${_Z}\n"
     printf "  ${_D}│${_Z}  %-16s ${_W}%-38s${_Z}  ${_D}│${_Z}\n" "Current:" "$repo_label"
     printf "  ${_D}│${_Z}  %-16s ${_C}%-38s${_Z}  ${_D}│${_Z}\n" "SSOT Path:" "$current_repo"
     printf "  ${_D}├──────────────────────────────────────────────────────┤${_Z}\n"
-    if [[ "$current_repo" == *"/bashscripts" ]]; then
-        printf '  \033[2m│\033[0m  \033[1ma)\033[0m %-14s ✅ %-22s  \033[2m│\033[0m\n' "~/bashscripts" "(personal)"
-        printf '  \033[2m│\033[0m  \033[0;32m◀\033[0m \033[1mb)\033[0m %-14s ✅ %-22s  \033[2m│\033[0m\n' "~/ssot" "(shared)"
-    elif [[ "$current_repo" == *"/ssot" ]]; then
-        printf '  \033[2m│\033[0m    \033[1ma)\033[0m %-14s ✅ %-22s  \033[2m│\033[0m\n' "~/bashscripts" "(personal)"
-        printf '  \033[2m│\033[0m  \033[0;32m◀\033[0m \033[1mb)\033[0m %-14s ✅ %-22s  \033[2m│\033[0m\n' "~/ssot" "(shared)"
-    else
-        printf '  \033[2m│\033[0m    \033[1ma)\033[0m %-14s ✅ %-22s  \033[2m│\033[0m\n' "~/bashscripts" "(personal)"
-        printf '  \033[2m│\033[0m    \033[1mb)\033[0m %-14s ✅ %-22s  \033[2m│\033[0m\n' "~/ssot" "(shared)"
-    fi
+    printf '  \033[2m│\033[0m  \033[0;32m◀\033[0m \033[1mssot\033[0m %-12s ✅ %-22s  \033[2m│\033[0m\n' "~/ssot" "(single)"
     printf "  ${_D}├──────────────────────────────────────────────────────┤${_Z}\n"
     printf "  ${_D}│${_Z}  %-16s %-38s  ${_D}│${_Z}\n" "Git:" "$git_status"
     printf "  ${_D}└──────────────────────────────────────────────────────┘${_Z}\n"
@@ -601,8 +582,7 @@ _render_actions() {
     if [[ "$_OPT_JSON" == "true" ]]; then
         local json="{"
         json+="\"commands\":["
-        json+="{\"cmd\":\"repo a\",\"desc\":\"Switch to ~/bashscripts\"},"
-        json+="{\"cmd\":\"repo b\",\"desc\":\"Switch to ~/ssot\"},"
+        json+="{\"cmd\":\"repo\",\"desc\":\"Show ~/ssot status\"},"
         json+="{\"cmd\":\"pf [mom|joe]\",\"desc\":\"Switch AI profile\"},"
         json+="{\"cmd\":\"node-status --ssh\",\"desc\":\"Live node health check\"},"
         json+="{\"cmd\":\"vault status\",\"desc\":\"Vault health audit\"},"
@@ -616,7 +596,7 @@ _render_actions() {
 
     printf "  ${_B}${_C}%s  %s${_Z}\n" "$icon" "$title"
     printf "  ${_D}┌──────────────────────────────────────────────────────┐${_Z}\n"
-    printf "  ${_D}│${_Z}  ${_B}${_C}repo${_Z} %-2s ${_D}│${_Z} Switch SSOT repository              ${_D}│${_Z}\n" "a/b"
+    printf "  ${_D}│${_Z}  ${_B}${_C}repo${_Z} %-2s ${_D}│${_Z} Show ~/ssot status                   ${_D}│${_Z}\n" ""
     printf "  ${_D}│${_Z}  ${_B}${_C}pf${_Z}  %-2s ${_D}│${_Z} Switch AI profile (mom/joe)         ${_D}│${_Z}\n" ""
     printf "  ${_D}│${_Z}  ${_B}${_C}ns${_Z}  %-2s ${_D}│${_Z} Node status (--ssh for live)        ${_D}│${_Z}\n" ""
     printf "  ${_D}│${_Z}  ${_B}${_C}stc${_Z} %-2s ${_D}│${_Z} AI stats (live API probe)           ${_D}│${_Z}\n" ""

@@ -79,6 +79,21 @@ _resolve_active_secret() {
     fi
 }
 
+# ── 5.5 Machine-local vars — keep in sync with ssot-vault.sh::_is_machine_var ──
+_MACHINE_VAR_RE='^(JOE_ENV|MY_DEVICE|SSOT|HERMES_DIR|HERMES_LOG_DIR|PYTHON_VENV|SDCARD_PATH|NODE_HOST|NODE_BIN|SCRIPTS_PATH|COLOR_PATH)$'
+_MACHINE_VAR_PREFIX_RE='^(HERMES_|PYTHON_|SDCARD_)'
+_MACHINE_VAR_SUFFIX_RE='(_PATH|_DIR|_BIN)$'
+_MACHINE_VAR_NODE_RE='^NODE_[A-Z0-9_]+_(HOST|USER|PORT|ST_PORT|ST_ID|ST_URL)$'
+
+_is_machine_var() {
+    local _v="${1:?var name required}"
+    [[ "$_v" =~ $_MACHINE_VAR_RE ]] && return 0
+    [[ "$_v" =~ $_MACHINE_VAR_PREFIX_RE ]] && return 0
+    [[ "$_v" =~ $_MACHINE_VAR_SUFFIX_RE ]] && return 0
+    [[ "$_v" =~ $_MACHINE_VAR_NODE_RE ]] && return 0
+    return 1
+}
+
 # ── 6. Helper: Check if secrets are populated ──
 _secrets_populated() {
     local secret_file="${1:-$LOCAL_SECRET}"
@@ -150,7 +165,7 @@ _do_verify() {
         while IFS= read -r line; do
             if [[ "$line" =~ ^[[:space:]]*(export[[:space:]]+)?([A-Za-z_][A-Za-z0-9_]*)= ]]; then
                 local var_name="${BASH_REMATCH[2]}"
-                [[ "$var_name" == "JOE_ENV" || "$var_name" == "MY_DEVICE" ]] && continue
+                _is_machine_var "$var_name" && continue
                 total=$((total+1))
 
                 if grep -q "^[[:space:]]*\(export[[:space:]]\+\)\?${var_name}=" "$active_secret" 2>/dev/null; then
@@ -189,7 +204,7 @@ _do_diff() {
         while IFS= read -r line; do
             if [[ "$line" =~ ^[[:space:]]*(export[[:space:]]+)?([A-Za-z_][A-Za-z0-9_]*)= ]]; then
                 local var_name="${BASH_REMATCH[2]}"
-                [[ "$var_name" == "JOE_ENV" || "$var_name" == "MY_DEVICE" ]] && continue
+                _is_machine_var "$var_name" && continue
 
                 if ! grep -q "^[[:space:]]*\(export[[:space:]]\+\)\?${var_name}=" "$active_secret" 2>/dev/null; then
                     cn 196 b "  MISSING: $var_name"
@@ -249,7 +264,7 @@ _do_full_wizard() {
         while IFS= read -r line; do
             if [[ "$line" =~ ^[[:space:]]*(export[[:space:]]+)?([A-Za-z_][A-Za-z0-9_]*)= ]]; then
                 local var_name="${BASH_REMATCH[2]}"
-                [[ "$var_name" == "JOE_ENV" || "$var_name" == "MY_DEVICE" ]] && continue
+                _is_machine_var "$var_name" && continue
 
                 if ! grep -q "^[[:space:]]*\(export[[:space:]]\+\)\?${var_name}=" "$active_secret" 2>/dev/null; then
                     missing_list+=("$var_name")
@@ -321,7 +336,7 @@ _interactive_setup() {
     while IFS= read -r line; do
         if [[ "$line" =~ ^[[:space:]]*(export[[:space:]]+)?([A-Za-z_][A-Za-z0-9_]*)=(.*) ]]; then
             local var_name="${BASH_REMATCH[2]}"
-            [[ "$var_name" == "JOE_ENV" || "$var_name" == "MY_DEVICE" ]] && continue
+            _is_machine_var "$var_name" && continue
 
             local current_val=""
             if grep -q "^[[:space:]]*\(export[[:space:]]\+\)\?${var_name}=" "$secret_file" 2>/dev/null; then
@@ -378,11 +393,15 @@ _show_help() {
     echo "  3. bash ~/ssot/bootstrap/vault/secret-setup.sh"
     echo "     └─ Verifies all secrets are populated"
     echo ""
-    echo "Adding New Secrets:"
-    echo "  1. Add key to .env.example (with empty value)"
-    echo "  2. Add value to ~/.env.secret"
-    echo "  3. vault lock  (re-encrypt vault)"
-    echo "  4. git commit + push"
+    echo "Adding New Secrets (flexible — no script changes needed):"
+    echo "  vault set MY_NEW_KEY            # prompt + save to ~/.env.secret"
+    echo "  vault set MY_NEW_KEY \"value\"    # non-interactive"
+    echo "  vault get MY_NEW_KEY            # print value (for scripts)"
+    echo "  vault list                      # show all keys (masked)"
+    echo "  vault del OLD_KEY               # remove a key"
+    echo "  1. (optional) Add key to .env.example so 'vault status' tracks it"
+    echo "  2. vault lock  (re-encrypt vault)"
+    echo "  3. git commit + push"
     echo ""
 }
 

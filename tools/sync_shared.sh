@@ -1,18 +1,11 @@
 #!/usr/bin/env bash
 # ============================================================
-# sync_shared.sh — SSOT ↔ Bashscripts Shared Files Synchronizer
+# sync_shared.sh — DEPRECATED (single-repo mode)
 # ============================================================
-# Synchronizes shared libraries (.bash_helper, .bash_checker, etc.)
-# between ~/ssot and ~/bashscripts to prevent version drift.
-# Supports recursive synchronization of subfolders within shared/.
-#
-# Usage:
-#   sync_shared.sh status       # Show status & hash match for all shared files
-#   sync_shared.sh diff [file]  # Show diff between ssot and bashscripts
-#   sync_shared.sh push         # Sync active SSOT -> sibling repo
-#   sync_shared.sh pull         # Sync sibling repo -> active SSOT
-#   sync_shared.sh auto         # Auto-sync (newer timestamp wins, with backup)
-#   sync_shared.sh check        # Silent exit code 0=in-sync, 1=drift
+# Legacy dual-repo synchronizer (~/ssot ↔ ~/bashscripts).
+# ~/bashscripts has been removed — single-repo mode uses ~/ssot only.
+# This script is kept as a no-op shim so legacy callers (`repo`,
+# `sync-shared`, drift checks) don't break.
 # ============================================================
 
 # ── 1. Determine Repositories ──
@@ -385,42 +378,23 @@ sync_check_silent() {
 }
 
 # ── 6. Main Dispatcher ──
+# DEPRECATED (single-repo mode): ~/bashscripts removed. Keep `check` as
+# silent no-op (exit 0) so legacy callers don't warn about drift.
 case "${1:-status}" in
-    status|-s|--status)
-        sync_status
-        ;;
-    diff|-d|--diff)
-        shift
-        sync_diff "$@"
-        ;;
-    push)
-        sync_push
-        ;;
-    pull)
-        sync_pull
-        ;;
-    auto)
-        sync_auto
-        ;;
     check|-c|--check)
-        if ! sync_check_silent; then
-            echo "$(_c_yellow "⚠️  [SSOT Drift] Shared files out of sync between ssot and bashscripts! Run 'sync-shared' to update.")" >&2
-            exit 1
-        fi
         exit 0
         ;;
     -h|--help|help)
-        echo "Usage: sync-shared [status|diff|push|pull|auto|check]"
-        echo "  status  — Show sync status table (default)"
-        echo "  diff    — Show diff of drifting files"
-        echo "  push    — Sync active SSOT -> Bashscripts"
-        echo "  pull    — Sync Bashscripts -> SSOT"
-        echo "  auto    — Auto-sync by modification timestamp"
-        echo "  check   — Silent check with 1-line warning if drift"
+        echo "sync-shared is deprecated — single-repo mode uses ~/ssot only."
+        echo "No sync needed. (Legacy ~/bashscripts support removed.)"
+        ;;
+    status|-s|--status|diff|-d|--diff|push|pull|auto)
+        echo "⚠️  sync-shared is deprecated — single-repo mode uses ~/ssot only." >&2
+        echo "   No action taken." >&2
+        exit 0
         ;;
     *)
-        echo "Unknown command: $1"
-        echo "Run 'sync-shared --help' for usage."
-        exit 1
+        echo "sync-shared is deprecated — single-repo mode uses ~/ssot only." >&2
+        exit 0
         ;;
 esac

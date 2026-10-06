@@ -12,7 +12,7 @@ this device as an SSOT node member (`bootstrap/nodes/<name>.node.env`):
 ```bash
 # Clone first, then install with your device name as $1
 
-git clone https://github.com/joece035/ssot-public.git ~/ssot
+git clone https://github.com/civenz-035/ssot.git ~/ssot
 bash ~/ssot/bootstrap/install.sh <device>
 #  e.g. termux | mumu | oppo | wsl | wsl2 | acodex   (Git-Bash auto-detects)
 
@@ -20,7 +20,7 @@ bash ~/ssot/bootstrap/install.sh <device>
 MY_DEVICE=oppo bash ~/ssot/bootstrap/install.sh
 
 # Fully remote one-liner (device via MY_DEVICE, defaults to auto-detect):
-curl -fsSL https://raw.githubusercontent.com/joece035/ssot-public/main/bootstrap/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/civenz-035/ssot/main/bootstrap/install.sh | bash
 ```
 
 The installer will:

@@ -83,6 +83,57 @@ _ensure_openssl() {
     fi
 }
 
+# ── 4.5 Machine-local vars (NEVER enter the shared vault) ──
+# Single source of truth for "not a secret". Keep in sync with
+# bootstrap/vault/secret-setup.sh::_is_machine_var.
+# Covers: exact legacy names, HERMES_/PYTHON_/SDCARD_ prefixes,
+# per-node connection vars (HOST/USER/PORT/ST_PORT/ST_ID/ST_URL —
+# note: NODE_*_ST_KEY *is* a secret and stays in the vault),
+# and generic path-like suffixes.
+_MACHINE_VAR_RE='^(JOE_ENV|MY_DEVICE|SSOT|HERMES_DIR|HERMES_LOG_DIR|PYTHON_VENV|SDCARD_PATH|NODE_HOST|NODE_BIN|SCRIPTS_PATH|COLOR_PATH)$'
+_MACHINE_VAR_PREFIX_RE='^(HERMES_|PYTHON_|SDCARD_)'
+_MACHINE_VAR_SUFFIX_RE='(_PATH|_DIR|_BIN)$'
+_MACHINE_VAR_NODE_RE='^NODE_[A-Z0-9_]+_(HOST|USER|PORT|ST_PORT|ST_ID|ST_URL)$'
+
+_is_machine_var() {
+    local _v="${1:?var name required}"
+    [[ "$_v" =~ $_MACHINE_VAR_RE ]] && return 0
+    [[ "$_v" =~ $_MACHINE_VAR_PREFIX_RE ]] && return 0
+    [[ "$_v" =~ $_MACHINE_VAR_SUFFIX_RE ]] && return 0
+    [[ "$_v" =~ $_MACHINE_VAR_NODE_RE ]] && return 0
+    return 1
+}
+
+# Strip `export ` prefix + one layer of surrounding quotes.
+_extract_value() {
+    local _line="$1" _val
+    _val="${_line#*=}"
+    if [[ "$_val" =~ ^\"(.*)\"$ ]]; then
+        _val="${BASH_REMATCH[1]}"
+    elif [[ "$_val" =~ ^\'(.*)\'$ ]]; then
+        _val="${BASH_REMATCH[1]}"
+    fi
+    _val="${_val//\\\"/\"}"
+    _val="${_val//\\\$/\$}"
+    _val="${_val//\\\`/\`}"
+    _val="${_val//\\\\/\\}"
+    printf '%s' "$_val"
+}
+
+# Upsert KEY into a secret file (append `export KEY="escaped"`).
+_upsert_secret() {
+    local _file="$1" _key="$2" _val="$3" _tmp
+    _tmp="$(mktemp)"
+    grep -vE "^[[:space:]]*(export[[:space:]]+)?${_key}=" "$_file" 2>/dev/null > "$_tmp" || true
+    local _esc="${_val//\\/\\\\}"
+    _esc="${_esc//\"/\\\"}"
+    _esc="${_esc//\$/\\\$}"
+    _esc="${_esc//\`/\\\`}"
+    printf 'export %s="%s"\n' "$_key" "$_esc" >> "$_tmp"
+    cat "$_tmp" > "$_file"
+    rm -f "$_tmp"
+}
+
 # ── 5. Core Commands ──
 
 # --- LOCK / ENCRYPT ---
@@ -102,7 +153,16 @@ cmd_lock() {
     if [[ "$target_secret" == "$LOCAL_ENV" || "$target_secret" == "$SSOT_ENV" ]]; then
         cn 214 b "⚡ Migrating pure secrets from $(basename "$target_secret") → $LOCAL_SECRET..."
         mkdir -p "$(dirname "$LOCAL_SECRET")"
-        grep -vE '^[[:space:]]*(export[[:space:]]+)?(JOE_ENV|MY_DEVICE|SSOT|HERMES_DIR|PYTHON_VENV|SDCARD_PATH|NODE_HOST|NODE_BIN|SCRIPTS_PATH|COLOR_PATH)=' "$target_secret" > "$LOCAL_SECRET"
+        local _mig_tmp
+        _mig_tmp="$(mktemp)"
+        while IFS= read -r _mig_line || [[ -n "$_mig_line" ]]; do
+            if [[ "$_mig_line" =~ ^[[:space:]]*(export[[:space:]]+)?([A-Za-z_][A-Za-z0-9_]*)= ]]; then
+                _is_machine_var "${BASH_REMATCH[2]}" && continue
+            fi
+            printf '%s\n' "$_mig_line" >> "$_mig_tmp"
+        done < "$target_secret"
+        cat "$_mig_tmp" > "$LOCAL_SECRET"
+        rm -f "$_mig_tmp"
         chmod 600 "$LOCAL_SECRET"
         ln -sf "$LOCAL_SECRET" "$SSOT_SECRET" 2>/dev/null || true
         target_secret="$LOCAL_SECRET"
@@ -270,7 +330,7 @@ cmd_status() {
         while IFS= read -r line; do
             if [[ "$line" =~ ^[[:space:]]*(export[[:space:]]+)?([A-Za-z_][A-Za-z0-9_]*)= ]]; then
                 local var_name="${BASH_REMATCH[2]}"
-                [[ "$var_name" == "JOE_ENV" || "$var_name" == "MY_DEVICE" ]] && continue
+                _is_machine_var "$var_name" && continue
                 total=$((total+1))
 
                 if grep -q "^[[:space:]]*\(export[[:space:]]\+\)\?${var_name}=" "$active_secret" 2>/dev/null; then
@@ -294,6 +354,34 @@ cmd_status() {
         echo ""
         printf "   Total: %d | $(c 82 b "Set: %d") | $(c 226 b "Empty: %d") | $(c 196 b "Missing: %d")\n" \
             "$total" "$ok" "$empty" "$missing"
+
+        # ── Extra (untracked) secrets: set locally but missing from .env.example ──
+        # Informational only — shown even when the audit below fails.
+        # Promote with: add key to .env.example, then `vault lock`.
+        echo ""
+        echo "🆕 Extra secrets (set locally, not in .env.example):"
+        local _extra=0 _extra_src="$LOCAL_SECRET"
+        if [[ ! -f "$_extra_src" ]]; then
+            _extra_src="$active_secret"
+        fi
+        while IFS= read -r _sline || [[ -n "$_sline" ]]; do
+            if [[ "$_sline" =~ ^[[:space:]]*(export[[:space:]]+)?([A-Za-z_][A-Za-z0-9_]*)= ]]; then
+                local _ek="${BASH_REMATCH[2]}"
+                if _is_machine_var "$_ek"; then
+                    continue
+                fi
+                if grep -qE "^[[:space:]]*(export[[:space:]]+)?${_ek}=" "$EXAMPLE_FILE" 2>/dev/null; then
+                    continue
+                fi
+                _extra=$((_extra+1))
+                printf "   %-28s $(c 39 b "UNTRACKED")\n" "$_ek"
+            fi
+        done < "$_extra_src"
+        if (( _extra == 0 )); then
+            echo "   (none)"
+        else
+            echo "   💡 Promote: add to .env.example, then vault lock → git push"
+        fi
 
         # Exit code for CI/scripting
         if (( missing > 0 || empty > 0 )); then
@@ -331,7 +419,7 @@ cmd_init() {
     while IFS= read -r line; do
         if [[ "$line" =~ ^[[:space:]]*(export[[:space:]]+)?([A-Za-z_][A-Za-z0-9_]*)=(.*) ]]; then
             local var_name="${BASH_REMATCH[2]}"
-            [[ "$var_name" == "JOE_ENV" || "$var_name" == "MY_DEVICE" ]] && continue
+            _is_machine_var "$var_name" && continue
 
             # Check current value
             local current_val=""
@@ -399,6 +487,136 @@ cmd_export() {
     fi
 }
 
+# --- SET / ADD (add or update one secret) ---
+# Usage: vault set KEY [VALUE] [--force]
+#        vault add KEY               (always prompts)
+# No VALUE → prompt (silent). VALUE as arg → non-interactive (CI-safe).
+# Machine-local-looking KEYs are rejected unless --force.
+cmd_set() {
+    local _force=false _key="" _val="" _a
+    for _a in "$@"; do
+        if [[ "$_a" == "--force" || "$_a" == "-f" ]]; then
+            _force=true
+        elif [[ -z "$_key" ]]; then
+            _key="$_a"
+        else
+            _val="$_a"
+        fi
+    done
+
+    if [[ -z "$_key" ]]; then
+        echo "Usage: vault set KEY [VALUE] [--force]" >&2
+        return 1
+    fi
+    if [[ ! "$_key" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then
+        cn 196 b "❌ Invalid variable name: $_key"
+        return 1
+    fi
+    if ! $_force && _is_machine_var "$_key"; then
+        cn 214 b "⚠️  '$_key' looks like machine-local config (kept out of the shared vault)."
+        echo "   Re-run with --force to store it anyway."
+        return 1
+    fi
+
+    mkdir -p "$(dirname "$LOCAL_SECRET")"
+    if [[ ! -f "$LOCAL_SECRET" ]]; then
+        touch "$LOCAL_SECRET"
+        chmod 600 "$LOCAL_SECRET"
+        ln -sf "$LOCAL_SECRET" "$SSOT_SECRET" 2>/dev/null || true
+    fi
+
+    if [[ -z "$_val" ]]; then
+        if [[ -n "${SSOT_VAULT_VALUE:-}" ]]; then
+            _val="$SSOT_VAULT_VALUE"
+        elif [[ -t 0 || -e /dev/tty ]]; then
+            read -r -s -p "Value for $_key: " _val < /dev/tty
+            echo ""
+        fi
+    fi
+    if [[ -z "$_val" ]]; then
+        cn 196 b "❌ Empty value — aborted."
+        return 1
+    fi
+
+    _upsert_secret "$LOCAL_SECRET" "$_key" "$_val"
+    chmod 600 "$LOCAL_SECRET"
+    cn 82 b "✅ Set $_key (in $LOCAL_SECRET)"
+    echo "💡 Next: vault lock → git commit → git push"
+}
+
+# --- GET (print one secret value, for scripts) ---
+# Usage: vault get KEY   → prints raw value to stdout, nothing else.
+cmd_get() {
+    local _key="${1:-}"
+    if [[ -z "$_key" ]]; then
+        echo "Usage: vault get KEY" >&2
+        return 1
+    fi
+    local _src="$(_resolve_active_secret)"
+    if [[ -z "$_src" ]]; then
+        echo "❌ No secret file found" >&2
+        return 1
+    fi
+    local _line
+    _line="$(grep -m 1 -E "^[[:space:]]*(export[[:space:]]+)?${_key}=" "$_src" 2>/dev/null || true)"
+    if [[ -z "$_line" ]]; then
+        echo "❌ '$_key' not found in $(basename "$_src")" >&2
+        return 1
+    fi
+    _extract_value "$_line"
+    echo ""
+}
+
+# --- LIST (all secret names, values masked) ---
+cmd_list() {
+    local _src="$(_resolve_active_secret)"
+    if [[ -z "$_src" ]]; then
+        cn 196 b "❌ No secret file found"
+        return 1
+    fi
+    echo "🔑 Secrets in $(basename "$_src"):"
+    while IFS= read -r _line || [[ -n "$_line" ]]; do
+        if [[ "$_line" =~ ^[[:space:]]*(export[[:space:]]+)?([A-Za-z_][A-Za-z0-9_]*)= ]]; then
+            local _k="${BASH_REMATCH[2]}"
+            if _is_machine_var "$_k"; then
+                continue
+            fi
+            local _v
+            _v="$(_extract_value "$_line")"
+            if [[ -n "$_v" ]]; then
+                printf "   %-28s $(c 82 b "SET") %s\n" "$_k" "${_v:0:4}..."
+            else
+                printf "   %-28s $(c 226 b "EMPTY")\n" "$_k"
+            fi
+        fi
+    done < "$_src"
+    echo ""
+}
+
+# --- DEL (remove one secret) ---
+# Usage: vault del KEY
+cmd_del() {
+    local _key="${1:-}"
+    if [[ -z "$_key" ]]; then
+        echo "Usage: vault del KEY" >&2
+        return 1
+    fi
+    if [[ ! -f "$LOCAL_SECRET" ]]; then
+        cn 196 b "❌ No local secret file: $LOCAL_SECRET"
+        return 1
+    fi
+    if ! grep -qE "^[[:space:]]*(export[[:space:]]+)?${_key}=" "$LOCAL_SECRET" 2>/dev/null; then
+        cn 196 b "❌ '$_key' not found in $LOCAL_SECRET"
+        return 1
+    fi
+    local _tmp
+    _tmp="$(mktemp)"
+    grep -vE "^[[:space:]]*(export[[:space:]]+)?${_key}=" "$LOCAL_SECRET" > "$_tmp" || true
+    cat "$_tmp" > "$LOCAL_SECRET"
+    rm -f "$_tmp"
+    cn 82 b "✅ Deleted $_key (run 'vault lock' to sync)"
+}
+
 # ── 6. CLI Dispatcher ──
 case "${1:-}" in
     lock|encrypt)       cmd_lock ;;
@@ -406,28 +624,16 @@ case "${1:-}" in
     status)             cmd_status ;;
     init|setup)         cmd_init ;;
     export|backup)      cmd_export ;;
+    set|add)            shift; cmd_set "$@" ;;
+    get)                shift; cmd_get "$@" ;;
+    list|ls)            cmd_list ;;
+    del|rm|remove)      shift; cmd_del "$@" ;;
     verify|check)       cmd_status ;;   # alias: verify = status
     diff)               cmd_status ;;   # alias: diff = status
     audit)              cmd_status ;;   # alias: audit = status
 
-    # Pubkey commands (pass-through to pubkey-manager.sh)
-    lock_pubkey|unlock_pubkey|pubkey-status)
-        _PUBKEY_SCRIPT="$SSOT/bootstrap/nodes/pubkey-manager.sh"
-        if [[ -f "$_PUBKEY_SCRIPT" ]]; then
-            _pk_cmd="${1}"
-            shift
-            case "$_pk_cmd" in
-                pubkey-status) bash "$_PUBKEY_SCRIPT" status "$@" ;;
-                *)             bash "$_PUBKEY_SCRIPT" "$_pk_cmd" "$@" ;;
-            esac
-        else
-            cn 196 b "❌ pubkey-manager.sh not found"
-            exit 1
-        fi
-        ;;
-
-    # Pubkey corrector (vault strategy: fingerprint dedup + repair + merge)
-    pubkey-audit|pubkey-fix|pubkey-collect|pubkey-sync)
+    # Pubkey mesh (single tool: pubkey-corrector.sh — fingerprint dedup + repair)
+    pubkey-audit|pubkey-fix|pubkey-collect|pubkey-sync|lock_pubkey|unlock_pubkey|pubkey-status)
         _CORRECTOR_SCRIPT="$SSOT/bootstrap/nodes/pubkey-corrector.sh"
         if [[ -f "$_CORRECTOR_SCRIPT" ]]; then
             _pc_cmd="${1}"
@@ -437,6 +643,9 @@ case "${1:-}" in
                 pubkey-fix)     bash "$_CORRECTOR_SCRIPT" fix-local "$@" ;;
                 pubkey-collect) bash "$_CORRECTOR_SCRIPT" collect "$@" ;;
                 pubkey-sync)    bash "$_CORRECTOR_SCRIPT" install "$@" ;;
+                lock_pubkey)    bash "$_CORRECTOR_SCRIPT" collect "$@" ;;   # legacy alias
+                unlock_pubkey)  bash "$_CORRECTOR_SCRIPT" install "$@" ;;   # legacy alias
+                pubkey-status)  bash "$_CORRECTOR_SCRIPT" status "$@" ;;    # legacy alias
             esac
         else
             cn 196 b "❌ pubkey-corrector.sh not found"
@@ -455,25 +664,35 @@ case "${1:-}" in
         echo "  init    Interactive wizard to fill in secrets"
         echo "  export  Encrypted backup of ~/.env.secret"
         echo ""
-        echo "Pubkey Commands:"
-        echo "  lock_pubkey [--add <key>] [--from <host>]"
-        echo "              Collect + encrypt SSH pubkeys → core/pubkeys.enc"
-        echo "  unlock_pubkey"
-        echo "              Decrypt → install to ~/.ssh/authorized_keys"
-        echo "  pubkey-status"
-        echo "              Show vault + key installation status"
+        echo "Flexible Secret Commands (no template edit needed first):"
+        echo "  set KEY [VALUE] [--force]"
+        echo "          Add/update one secret (prompts silently if no VALUE;"
+        echo "          rejects machine-local names unless --force)"
+        echo "  add KEY Same as set (always prompts)"
+        echo "  get KEY Print raw value (for scripts)"
+        echo "  list    Show all secret names (values masked)"
+        echo "  del KEY Remove one secret"
         echo ""
-        echo "Pubkey Corrector (vault strategy — fingerprint dedup + repair):"
+        echo "Aliases: add → set; ls → list; rm/remove → del"
+        echo ""
+        echo "Pubkey Mesh (single tool — fingerprint dedup + repair + fanout):"
         echo "  pubkey-audit    Read-only check of authorized_keys"
         echo "  pubkey-fix      Repair this node (backup + join splits + dedup + self key)"
-        echo "  pubkey-collect [--add <key>] [--from <host>] [--scan-mesh]"
-        echo "                  Merge keys into vault (default: local only)"
-        echo "  pubkey-sync     Install vault keys (fingerprint merge)"
+        echo "  pubkey-collect [--add <key>] [--from <host>] [--scan-mesh] [--collect]"
+        echo "                  Merge keys into vault (default: local only; --collect = pending/)"
+        echo "  pubkey-sync [--fanout] [--only <node>]"
+        echo "              Install vault keys (fingerprint merge;"
+        echo "              --fanout = also pull+install on every other node over SSH)"
+        echo ""
+        echo "Legacy pubkey aliases: lock_pubkey → pubkey-collect; unlock_pubkey → pubkey-sync;"
+        echo "                       pubkey-status → pubkey-audit"
         echo ""
         echo "Aliases: verify, check, diff, audit → status"
         echo ""
         echo "Non-interactive:"
         echo "  export SSOT_VAULT_PASS='<pass>'  (skip passphrase prompts)"
+        echo "  export SSOT_VAULT_VALUE='<val>'  (value for 'vault set KEY')"
+        echo "  vault set KEY \"value\"             (or pass VALUE as arg)"
         echo ""
         exit 0
         ;;

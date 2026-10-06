@@ -6,7 +6,7 @@
 
 set -eo pipefail
 
-SSOT_REPO="https://github.com/joece035/ssot-public.git"
+SSOT_REPO="https://github.com/civenz-035/ssot.git"
 SSOT_TARGET="$HOME/ssot"
 
 # ── [1] DETECT ENVIRONMENT ──
