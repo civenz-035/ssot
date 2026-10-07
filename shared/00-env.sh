@@ -108,10 +108,8 @@ export dsd="$DICE_SIM_DIR"
 export _py=${PYTHON_BIN}
 export hwsl=${HWSL}
 export hwsl2=${HWSL2}
-export bsc="$HOME/ssot"  # DEPRECATED: ~/bashscripts removed — bsc now aliases ~/ssot (single-repo)
 export ssot="$HOME/ssot"
 export profile=mom
-export oppc="$hpc/openclaw"
 export dpc="$hpc/Desktop"
 export dtpc="$hpc/Desktop"          # compat alias ของ dpc
 export hmp="${HERMES_DIR:-$HOME/.hermes}"   # AGENT.md: hmp = $HOME/.hermes
@@ -166,12 +164,9 @@ ai_bin
 # 2. SERVICE PATHS & DIRECTORIES
 # ============================================================
 
-# Use dbp from boot.sh (already set correctly for environment
-
-export ENGINES_DIR="$DASHBOARD_DIR/api/engines"
-
+# 
 # Dice Simulator — standalone repo (github.com/civenz-035/dice-simulator)
-export DICE_SIM_DIR="${DICE_SIM_DIR:-$HOME/dice-simulator}"
+export DICE_SIM_DIR="${DICE_SIM_DIR:-$HOME/math-simulator}"
 
 # ============================================================
 # 3. PYTHON & VIRTUAL ENVIRONMENT
@@ -408,46 +403,6 @@ case "$JOE_ENV" in
         ;;
 esac
 #-- Zshshell-setup
-zsh_setup(){
-    local JOE_ENV=${1:-$JOE_ENV} #-- TERMUX || MUMU
-    local zsh_path="${SSOT:-$HOME/ssot}/profiles/${device}/.zshrc"
-        case "$JOE_ENV" in
-            TERMUX|termux)
-                    if  [[ -f "$HOME/.zshrc" ]]; then
-                        mv "$HOME/.zshrc" "$HOME/.zshrcbk_by_setup" &&
-                        cn 10 bi "done backup .zshrc" &&
-                        #rm -f "$HOME/.zshrc" && cn 10 bi "deleted .zshrc" &&
-                        ln -s "${zsh_path}" "$HOME/.zshrc" &&
-                        [[ -f "$HOME/.zshrc" ]]&&
-                        c 10 bi "Done Symlink "${zsh_path}"";c 45 b "-->>";cn 198 b " ~/.zshrc"
-                    else
-                        ln -s ""${zsh_path}"" "$HOME/.zshrc" &&
-                        [[ -f "$HOME/.zshrc" ]]&&
-                        c 10 bi "Done Symlink "${zsh_path}"";c 45 b "-->>";cn 198 b " ~/.zshrc"
-                    fi
-                    ;;
-            MUMU|mumu)
-                    if  [[ -f "$HOME/.zshrc" ]]; then
-                        mv "$HOME/.zshrc" "$HOME/.zshrcbk_by_setup" &&
-                        cn 10 bi "done backup .zshrc" &&
-                        #rm -f "$HOME/.zshrc" && cn 10 bi "deleted .zshrc" &&
-                        ln -s "${zsh_path}" "$HOME/.zshrc" &&
-                        [[ -f "$HOME/.zshrc" ]]&&
-                        c 10 bi "Done Symlink "${zsh_path}"";c 45 b "-->>";cn 198 b " ~/.zshrc"
-                    else
-                        ln -s ""${zsh_path}"" "$HOME/.zshrc" &&
-                        [[ -f "$HOME/.zshrc" ]]&&
-                        c 10 bi "Done Symlink "${zsh_path}"";c 45 b "-->>";cn 198 b " ~/.zshrc"
-                    fi
-                    ;;
-            *)
-                    cn y b "้run zsh_setup <TERMUX or MUMU>"
-                    return 0
-                    ;;
-        esac
-
-
-}
 
 
 
