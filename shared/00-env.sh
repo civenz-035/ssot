@@ -412,4 +412,5 @@ export BEP20_BK=0x5C7D1Da0862F8865C328c8CDE22B3C1168dA2740
 export POL_BK=$BEP20_BK
 
 export sim="$HOME/simulator"
+export mhp="$HOME/.maths-helper"
 
