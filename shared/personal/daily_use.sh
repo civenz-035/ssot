@@ -122,32 +122,49 @@ go2(){
 			-a
 }
 
-gclone(){
-	local proj=${1:-ssot}
-	local url=""
-	local installer=""
-	
-		case "$proj" in
-			-ssot|--SSOT) 
-					local dir="$HOME/ssot"
-					local url="https://github.com/civenz-035/ssot.git"
-					local installer="$dir/bootstrap/install.sh"
-			;;
-			-mhp|--maths-helper) 
-					local dir="$HOME/.maths-helper"
-					local url="https://github.com/civenz-035/maths-helper.git"
-					local installer="$dir/install.sh"
-			;;
-			-sim|--simulator) 
-					local dir="$HOME/math-simulator"
-					local url="https://github.com/civenz-035/math-simulator.git"
-					local installer="$dir/install.sh"
-			;;
-  	esac
+gclone() {
+    local proj="${1:-ssot}"
+    
+    # เลื่อน argument เพื่อดึงตัวถัดไปมาใช้
+    # หากมีการส่ง $1 มา ให้ตัด $1 ทิ้ง เพื่อให้ $@ เหลือเฉพาะค่าที่จะส่งต่อให้ installer
+    [ $# -gt 0 ] && shift
 
-	if comman -v git 2>/dev/null ; then
-		git clone "$url" "$dir" 
-		bash "$installer" "${1:-}"
+    local dir=""
+    local url=""
+    local installer=""
 
-			
+    case "$proj" in
+        ssot|-ssot|--SSOT)
+            dir="$HOME/ssot"
+            url="https://github.com/civenz-035/ssot.git"
+            installer="$dir/bootstrap/install.sh"
+            ;;
+        mhp|-mhp|--maths-helper)
+            dir="$HOME/.maths-helper"
+            url="https://github.com/civenz-035/maths-helper.git"
+            installer="$dir/install.sh"
+            ;;
+        sim|-sim|--simulator)
+            dir="$HOME/math-simulator"
+            url="https://github.com/civenz-035/math-simulator.git"
+            installer="$dir/install.sh"
+            ;;
+        *)
+            echo "Error: Unknown project '$proj'" >&2
+            return 1
+            ;;
+    esac
+
+    if ! command -v git >/dev/null 2>&1; then
+        echo "Error: git is not installed." >&2
+        return 1
+    fi
+
+    if [ -d "$dir" ]; then
+        echo "Directory '$dir' already exists. Updating via git pull..."
+        git -C "$dir" pull && bash "$installer" "$@"
+    else
+        echo "Cloning $proj into$dir..."
+        git clone "$url" "$dir" && bash "$installer" "$@"
+    fi
 }
