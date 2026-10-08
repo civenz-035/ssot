@@ -236,7 +236,7 @@ link2bin(){
 basecalc() {
 
     # --- source maths functions ---
-        _C -f slv $HOME
+        
 
     # formula: BASEBET * m^(n+1) = cur_bal
     #          basebet = cur_bal * (m - 1) / (m^n - 1)
