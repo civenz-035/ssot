@@ -119,7 +119,7 @@ gclone() {
             installer="$dir/install.sh"
             ;;
         sim|-sim|--simulator)
-            dir="$HOME/math-simulator"
+            dir="$HOME/simulator"
             url="https://github.com/civenz-035/math-simulator.git"
             installer="$dir/install.sh"
             ;;
