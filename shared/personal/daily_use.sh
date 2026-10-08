@@ -94,22 +94,51 @@ d(){
 	
 	
 }
+# -- update project
+joe_update(){
 
-ms(){
-	local mode=$1
+	local project=("ssot" "msim" "mhp")
+	local ssot_dir="$HOME/ssot"
+	local msim_dir="$HOME/math-simulator"
+	local mhpro_dir="$HOME/.maths-helper"
+
+	
+
+
+	local cmd=$1 p
 	shift
-	case "$mode" in
-		-s|-status) mesh-sync status ;; # ดูทุก node
-		-pl|--pull) mesh-sync pull ;;  # ของเครื่องนี้ (เหมือน git pull)
-		-pu|--push) mesh-sync push ;; # ของเครื่องนี้ (เหมือน git push)
-		-sy|--sync) mesh-sync sync ;; # git pull แล้ว push
-		-fp|--fanpull) mesh-sync fanpull ;; # pull จากทุกเครื่อง ที่ออนไลน์
-		-fpn|--fanpush) mesh-sync fanpush ;; # push ไปยังทุกเครื่อง ที่ออนไลน์
-		-b|--broadcast) mesh-sync broadcast ;; # fanpull ทุกเครื่อง แล้วค่อย push
-		-pn|--pull-node) mesh-sync pull-node ;; # เจาะจง node
-		-h|--help) echo "Usage: ms [options]" ;;  
-		*) echo "Usage: ms [options]" ;;  
-	esac
 
+	for p in "${project[@]}"; do
+		local dir=""
+		case "$p" in
+		"ssot")
+			local dir="$ssot_dir"
+			;;
+		"msim")
+			local dir="$msim_dir"
+			;;
+		"mhp")
+			local dir="$mhp_dir"
+			;;	
+		esac
 
+		case "$cmd" in
+		-pu|--push)
+			
+			;;
+		-p|--pull)
+			
+			;;
+		-p|--pull-rebase)
+			
+			;;
+		-s|--status)
+			cd $dir && pwd
+			;;
+		*)
+			
+			;;
+		esac
+		
+	done
 }

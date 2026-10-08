@@ -18,7 +18,7 @@
 git_() {
   local repo=${1:-"$PWD"}
   shift
-  cd $repo &&
+  cd $ssot &&
   _guard_compat() {
       if ! typeset -f _check_compat >/dev/null 2>&1 && [[ -f "$repo/shared/.bash_checker" ]]; then
           source "$repo/shared/.bash_checker" 2>/dev/null
