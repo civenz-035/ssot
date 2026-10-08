@@ -56,9 +56,7 @@ git_() {
   else
     git status
   fi
-}
-
-
+ }
 git_joe() {
     local repo=${1:-"$PWD"}
     shift
@@ -90,8 +88,7 @@ git_joe() {
 							
     fi
 
-}
-
+ }
 g(){
   local repo=$1
   shift
@@ -108,34 +105,8 @@ g(){
       git_joe "$@"
       ;;
   esac
-}
-
-repository_remote_url(){
-    case $1 in
-           url)
-            git config --get remote.origin.url
-            ;;
-        status)
-            git status
-            ;;
-        ssot)
-            cd ~/ssot && git remote set-url origin https://github.com/civenz-035/ssot.git
-            ;;
-        bsc|bashscripts)
-            echo "⚠️  bashscripts repo is deprecated — single-repo mode uses ~/ssot only." >&2
-            echo "   Run 'grepo ssot' instead." >&2
-            return 1
-            ;;
-        *)
-            git remote -v
-
-            ;;
-    esac
-}
-alias grepo='repository_remote_url'
-
+ }
 # -- ฟังก์ชั่นหา Display Width ที่แท้จริง (รวม Emoji, Wide characters และตัด ANSI Code / PS1 delimiters ออก)
-
 pwd(){
     local op="${1:-}"
     if [[ -z "$op" ]]; then
@@ -161,8 +132,7 @@ pwd(){
  fi
  
 
-}
-
+ }
 _b2p(){
     local f="${1:-}"
     if [[ -z "$f" ]]; then
@@ -246,7 +216,7 @@ _b2p(){
         cn r bi "codetrans translation failed"
         return 1
     fi
-}		
+ }		
 link2bin(){
     local f="$1"
     if [[ -z "$f" ]]; then
@@ -260,4 +230,36 @@ link2bin(){
     ln -sf "$f" "$bin/$2" &&
     perm "$bin/$2"
 
-}		
+ }
+
+
+basecalc() {
+
+    # --- source maths functions ---
+        _C -f slv $HOME
+
+    # formula: BASEBET * m^(n+1) = cur_bal
+    #          basebet = cur_bal * (m - 1) / (m^n - 1)
+
+     usage="Usage: basecalc <cur_bal> <l_st> <mul> <scale>"
+
+   
+    case "${1:-}" in    
+       -h|--help)
+                 echo "$usage" 
+                 shift
+                 return 0
+       ;;
+       -c|--calcl)
+                  shift
+                  local cur_bal="${1:-100}"
+                  local l_st="${2:-10}"
+                  local mul="${3:-2}"
+                  local scale="${4:-8}"
+
+                 # เรียกใช้ slv พร้อม flag -q และกำหนดทศนิยม + โหมดปัดเศษได้แบบเดียวกับ mth()
+                 current_bet=$(slv -q "basebet/bal=(m-1)/(m^n-1)" "bal=$cur_bal" "m=$mul" "n=$l_st" "$scale" d)
+                 echo "$current_bet"
+       ;;
+    esac
+    }   

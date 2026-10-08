@@ -83,3 +83,6 @@ export PATH="$HOME/.local/bin:$PATH"
 export TERM=xterm-256color
 
 [ -t 0 ] && stty sane 2>/dev/null || true
+
+# maths-helper (mth, slv, calc, solve)
+[ -f "$HOME/.maths-helper/maths.sh" ] && source "$HOME/.maths-helper/maths.sh"

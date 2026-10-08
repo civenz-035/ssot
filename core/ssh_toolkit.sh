@@ -563,7 +563,7 @@ Recreate_ssh_authorized_keys() {
 
     # 2. Key name from canonical node tag (shared/00-env.sh sets NODE_HOST
     #    per JOE_ENV; hostname fallback keeps this usable standalone)
-    local key_name="${USER}@${NODE_HOST:-$(hostname -s 2>/dev/null || echo 'local')}"
+    local key_name="${1:-"${USER}@${NODE_HOST}"}"
     local ssh_dir="$HOME/.ssh"
     local key_file="$ssh_dir/id_ed25519_$key_name"
     local pub_key="$key_file.pub"
@@ -623,3 +623,40 @@ EOF
 }
 alias ressh="Recreate_ssh_authorized_keys"
 	
+ssh-agent_start(){
+
+    local key_name="${1:-"${USER}@${NODE_HOST}"}"
+    local ssh_dir="$HOME/.ssh"
+    local key_file="$ssh_dir/id_ed25519_$key_name"
+    local pub_key="$key_file.pub"
+    local config_file="$ssh_dir/config"
+
+    chmod 600 "$key_file"
+    chmod 644 "$pub_key"
+
+    if [ -z "${SSH_AUTH_SOCK:-}" ]; then
+        eval "$(ssh-agent -s)" > /dev/null
+    fi
+    ssh-add "$key_file" 2>/dev/null || true
+
+    echo -e "\n--- Testing GitHub SSH Connection ---"
+    ssh -T git@github.com
+}
+
+check_key(){
+
+    local key_name="${1:-"${USER}@${NODE_HOST}"}"
+    local ssh_dir="$HOME/.ssh"
+    local key_file="$ssh_dir/id_ed25519_$key_name"
+    local pub_key="$key_file.pub"
+    local config_file="$ssh_dir/config"
+
+
+    echo "$key_name"
+    echo "$ssh_dir"
+    echo "$key_file"
+    echo "$pub_key"
+    echo "$config_file"
+}
+
+    
