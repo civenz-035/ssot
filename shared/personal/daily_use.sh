@@ -145,8 +145,9 @@ gclone(){
 			;;
   	esac
 
-	git clone https://github.com/civenz-035/ssot.git ~/ssot
-bash ~/ssot/bootstrap/install.sh <device>
+	if comman -v git 2>/dev/null ; then
+		git clone "$url" "$dir" 
+		bash "$installer" "${1:-}"
 
 			
 }
