@@ -77,6 +77,6 @@ cn 240 b "∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎�
 	done
 }
 
-joe_update -ac "TESTING"
+joe_update -ac "TESTING" -s
 
            
