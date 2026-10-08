@@ -144,9 +144,9 @@ gclone() {
 }
 
 quick_git_update() {
-    local project=("ssot" "dice-simulator" "maths-helper")
+    local project=("ssot" "simulator" "maths-helper")
     local ssot_dir="$HOME/ssot"
-    local dice-simulator_dir="$HOME/dice-simulator"
+    local dice-simulator_dir="$HOME/simulator"
     local maths-helper_dir="$HOME/.maths-helper"
 
 
