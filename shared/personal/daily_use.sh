@@ -164,7 +164,7 @@ quick_git_update() {
             single_ -mhp "$@"
             ;;
         -p|--push|-pu|--pull|-ac|--add-commit|-s|--status)
-            all_ "$@"
+            git_joe "$@"
             ;;
         *)
             echo "Usage: qgu [all|ssot|simulator|maths-helper] [command]"
@@ -176,8 +176,8 @@ quick_git_update() {
 # ------------------------------------------------------------
 # ALIAS
 # ------------------------------------------------------------
-alias qgu='quick_git_update'
-alias gupall='qgu -pu -ac "quick update of all projects" -s -p'
+alias gu='quick_git_update'
+alias guall='qgu all -ac "quick update of all projects" -s -p'
 
 all_() {
     local project=("ssot" "simulator" "maths-helper")
