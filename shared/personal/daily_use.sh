@@ -29,9 +29,9 @@ ssot_update() {
 	
 }
 
-alias dice="bash $DICE_SIM_DIR/bin/roll.sh"
-alias dicepy="$_py $DICE_SIM_DIR/bin/roll.py"
-alias dcf='micro $DICE_SIM_DIR/config/dice.env'
+alias dice="bash $sim/bin/roll.sh"
+alias dicepy="$_py $sim/bin/roll.py"
+alias dcf='micro $sim/config/dice.env'
 
 banner_(){
 	local _bn_='
@@ -69,7 +69,7 @@ echo "$_bn_"
 }
 
 d(){
-	local dice_dir="$DICE_SIM_DIR/bin"
+	local dice_dir="$sim/bin"
 	local type=$1
 	shift
 	
@@ -84,7 +84,7 @@ d(){
 				$_py "$dice_dir/roll.py" calc "$@"
 				;;
 		-sv|--server)
-				cd "$DICE_SIM_DIR" && $_py server/dice-server.py
+				cd "$$sim" && $_py server/dice-server.py
 				;;
 		-h|--help)
 				banner_ 
@@ -144,11 +144,46 @@ gclone() {
 }
 
 quick_git_update() {
+    local mode="${1:-all}"
+
+    case "$mode" in
+        -a|--all|all)
+            [[ $# -gt 0 ]] && shift
+            all_ "$@"
+            ;;
+        -s|--ssot|-ssot|--SSOT|ssot)
+            [[ $# -gt 0 ]] && shift
+            single_ -ssot "$@"
+            ;;
+        -d|--dice-simulator|-sim|--simulator|sim|simulator)
+            [[ $# -gt 0 ]] && shift
+            single_ -sim "$@"
+            ;;
+        -m|--maths-helper|-mhp|--maths|maths)
+            [[ $# -gt 0 ]] && shift
+            single_ -mhp "$@"
+            ;;
+        -p|--push|-pu|--pull|-ac|--add-commit|-s|--status)
+            all_ "$@"
+            ;;
+        *)
+            echo "Usage: qgu [all|ssot|simulator|maths-helper] [command]"
+            return 1
+            ;;
+    esac
+}
+
+# ------------------------------------------------------------
+# ALIAS
+# ------------------------------------------------------------
+alias qgu='quick_git_update'
+alias gupall='qgu -pu -ac "quick update of all projects" -s -p'
+
+all_() {
     local project=("ssot" "simulator" "maths-helper")
     local ssot_dir="$HOME/ssot"
-    local dice-simulator_dir="$HOME/simulator"
-    local maths-helper_dir="$HOME/.maths-helper"
-
+    local simulator_dir="$HOME/simulator"
+    local maths_dir="$HOME/.maths-helper"
 
     while [[ $# -gt 0 ]]; do
         local cmd="$1"
@@ -157,33 +192,33 @@ quick_git_update() {
             local dir=""
             case "$p" in
                 "ssot") dir="$ssot_dir" ;;
-                "dice-simulator") dir="$dice-simulator_dir" ;;
-                "maths-helper")  dir="$maths-helper_dir"  ;;
+                "simulator") dir="$simulator_dir" ;;
+                "maths-helper") dir="$maths_dir" ;;
             esac
 
             case "$cmd" in
             -p|--push)
-				cn lg b "PUSHING ${p}"
+                cn lg b "PUSHING ${p}"
                 cd "$dir" && git push
-                cn 235 b "-------------------------------"  
+                cn 235 b "-------------------------------"
                 echo ""
                 ;;
             -ac|--add-commit)
                 cn lg b "ADD COMMIT ${p}"
                 cd "$dir" && git add -A && git commit -m "$2"
-                cn 235 b "-------------------------------"  
+                cn 235 b "-------------------------------"
                 echo ""
                 ;;
             -pu|--pull)
                 cn lg b "PULLING ${p}"
                 cd "$dir" && git pull
-                cn 235 b "-------------------------------"  
+                cn 235 b "-------------------------------"
                 echo ""
                 ;;
             -s|--status)
                 cn lg b "GIT STATUS in ${p}"
                 cd "$dir" && git status
-                cn 235 b "-------------------------------"  
+                cn 235 b "-------------------------------"
                 echo ""
                 ;;
             esac
@@ -197,8 +232,55 @@ quick_git_update() {
     done
 }
 
-# ------------------------------------------------------------
-#ALIAS
-# ------------------------------------------------------------
-alias qgu='quick_git_update'
-alias gupall='qgu -pu -ac "quick update of all projects" -s -p'
+single_() {
+    local dir=""
+    local project="$1"
+    local ssot_dir="$HOME/ssot"
+    local simulator_dir="$HOME/simulator"
+    local maths_dir="$HOME/.maths-helper"
+    [[ $# -gt 0 ]] && shift
+
+    case "$project" in
+        -ssot|--SSOT|--ssot|ssot) dir="$ssot_dir" ;; 
+        -sim|--simulator|-d|--dice-simulator|sim|simulator) dir="$simulator_dir" ;; 
+        -mhp|--maths|-m|--maths-helper|maths) dir="$maths_dir" ;; 
+        *) echo "Error: Unknown project '$project'" >&2; return 1 ;; 
+    esac
+
+    while [[ $# -gt 0 ]]; do
+        local cmd="$1"
+
+        case "$cmd" in
+            -p|--push)
+                cn lg b "PUSHING $(basename "$dir")"
+                cd "$dir" && git push
+                cn 235 b "-------------------------------"  
+                echo ""
+                ;;
+            -ac|--add-commit)
+                cn lg b "ADD COMMIT $(basename "$dir")"
+                cd "$dir" && git add -A && git commit -m "$2"
+                cn 235 b "-------------------------------"  
+                echo ""
+                ;;
+            -pu|--pull)
+                cn lg b "PULLING $(basename "$dir")"
+                cd "$dir" && git pull
+                cn 235 b "-------------------------------"  
+                echo ""
+                ;;
+            -s|--status)
+                cn lg b "GIT STATUS in $(basename "$dir")"
+                cd "$dir" && git status
+                cn 235 b "-------------------------------"  
+                echo ""
+                ;;
+        esac
+
+        # shift หลังจาก for loop รันครบทุก project
+        case "$cmd" in
+            -ac|--add-commit) shift 2 ;;  # กิน 2 args (flag + message)
+            *)                shift 1 ;;  # กิน 1 arg
+        esac
+    done
+}

@@ -91,20 +91,34 @@ git_joe() {
  }
 g(){
   local repo=$1
+  local update_sim="$HOME/simulator/update.sh"
   shift
 
 
    case "$repo" in
-      "bsc")
-      git_joe "$@"
-      ;;
-     "ssot")
-      git_joe "$@"
-      ;;
+      -sim|--simulator)
+            cd  $HOME/simulator &&
+            git_joe "$@"
+            ;;
+      -su|-sim--update)
+            cd  $HOME/simulator
+            bash $update_sim && 
+            cn 10 bi "DONE update sim"
+            ;;
+      -ssot|--SSOT)
+            cd $HOME/ssot
+            git_joe "$@"
+            ;;
+      -mhp|--maths-helper)
+            cd $HOME/.maths-helper
+            git_joe "$@"
+            ;;
+      
      *)
       git_joe "$@"
       ;;
   esac
+
  }
 # -- ฟังก์ชั่นหา Display Width ที่แท้จริง (รวม Emoji, Wide characters และตัด ANSI Code / PS1 delimiters ออก)
 pwd(){
