@@ -11,12 +11,41 @@ shopt -s checkwinsize
 
 # ── 2. BASH LINE EDITOR (Source only, no attach yet) ──
 
-# ── Fix ble.sh locale (Termux has no locale command) ──
-export LANG="en_US.UTF-8"
-export LC_ALL="en_US.UTF-8"
-export LC_CTYPE="en_US.UTF-8"
+# ── Locale (ACODEX) ─────────────────────────────────────────────
+# ACODEX ships NO locale database and has no `locale` command. C.UTF-8
+# is the POSIX-sanctioned spelling that bash here actually honours, so
+# set it: it gives correct multibyte handling for the prompt and tools.
+export LC_ALL="C.UTF-8"
+export LC_CTYPE="C.UTF-8"
+export LANG="C.UTF-8"
+unset LC_COLLATE LC_MESSAGES LC_MONETARY LC_NUMERIC LC_TIME LC_PAPER LC_MEASUREMENT 2>/dev/null
+
+# ── ble.sh ──────────────────────────────────────────────────────
+# ble.sh probed the locale with .test-C-locale:
+#   local LC_ALL= LC_CTYPE= LANG=C; local s='あ'; ((${#s}==3))
+# ACODEX's bash always answers 1 there (it decodes UTF-8 whatever LANG
+# says) — verified unfixable: plain, --posix, --noediting and -o posix
+# all give ${#s}==1. So the probe always failed and every login printed
+#   ble.sh: The locale 'C' (LC_CTYPE) seems broken. ...
+#   ble.sh: ACODEX has an issue with its locale "C", ...
+# which is a false positive (ACODEX/ACODEX-packages#23010).
+#
+# Clearing _ble_util_locale_broken after load does NOT help: ble recomputes
+# the cache whenever $LC_ALL:$LC_CTYPE:$LANG differs from its saved triple,
+# and .update-locale-cache runs from ble/term/attach at the FIRST PROMPT —
+# after our rc file has finished. The value is therefore always repopulated.
+#
+# Override the probe instead. It is defined by ble.sh and called by name, so
+# a redefinition after the source sticks and can only ever make the check
+# pass — it cannot affect any encoding table or character handling.
 if [[ $- == *i* && -f $HOME/.local/share/blesh/ble.sh ]]; then
-    [[ ${BLE_VERSION-} ]] || source $HOME/.local/share/blesh/ble.sh --attach=none
+    if [[ -z "${BLE_VERSION-}" ]]; then
+        source "$HOME/.local/share/blesh/ble.sh" --attach=none
+        # ACODEX bash is always multibyte-aware; report the probe as passing
+        ble/util/.test-C-locale() { return 0; }
+        _ble_util_locale_broken=
+        _ble_util_locale_broken_notified=
+    fi
 fi
 
 # ── 3. NVM & COMPLETIONS (MUST come BEFORE .env) ──
@@ -64,8 +93,7 @@ fi
 
 
 
-# Added by Antigravity CLI installer
-export PATH="$HOME/.local/bin:$PATH"
+
 
 # pnpm
 export PNPM_HOME="$HOME/.local/share/pnpm"
