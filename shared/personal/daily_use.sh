@@ -139,7 +139,7 @@ gclone() {
         git -C "$dir" pull && bash "$installer" "$@"
     else
         echo "Cloning $proj into$dir..."
-        git clone "$url" "$dir" && bash "$installer" "$@"
+        git clone "$url" "$dir" && perm "$installer" && bash "$installer" "$@"
     fi
 }
 
