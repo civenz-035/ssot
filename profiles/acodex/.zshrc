@@ -160,3 +160,10 @@ export GITSTATUS_ENABLE=0
 
 # maths-helper (mth, slv, calc, solve)
 [ -f "$HOME/.maths-helper/maths.sh" ] && source "$HOME/.maths-helper/maths.sh"
+
+# maths-helper aliases (ACodex mode)
+alias mth='python3 "$HOME/.maths-helper/maths.py" mth'
+alias calc='python3 "$HOME/.maths-helper/maths.py" mth'
+alias math='python3 "$HOME/.maths-helper/maths.py" mth'
+alias slv='"$HOME/.maths-helper/maths.sh" slv'
+alias solve='"$HOME/.maths-helper/maths.sh" slv'
