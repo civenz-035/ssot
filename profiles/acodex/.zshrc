@@ -157,3 +157,6 @@ esac
 export POWERLEVEL9K_DISABLE_GITSTATUS=true
 export GITSTATUS_ENABLE=0
  
+
+# maths-helper (mth, slv, calc, solve)
+[ -f "$HOME/.maths-helper/maths.sh" ] && source "$HOME/.maths-helper/maths.sh"
