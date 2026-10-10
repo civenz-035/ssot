@@ -144,155 +144,122 @@ gclone() {
 }
 
 quick_git_update() {
-    local mode="${1:-all}"
-
-    case "$mode" in
-        -a|--all|all)
-            [[ $# -gt 0 ]] && shift
-            all_ "$@"
-            ;;
-        -s|--ssot|-ssot|--SSOT|ssot)
-            [[ $# -gt 0 ]] && shift
-            single_ -ssot "$@"
-            ;;
-        -d|--dice-simulator|-sim|--simulator|sim|simulator)
-            [[ $# -gt 0 ]] && shift
-            single_ -sim "$@"
-            ;;
-        -m|--maths-helper|-mhp|--maths|maths)
-            [[ $# -gt 0 ]] && shift
-            single_ -mhp "$@"
-            ;;
-        -p|--push|-pu|--pull|-ac|--add-commit|-s|--status)
-            git_joe "$@"
-            ;;
-        *)
-            echo "Usage: qgu [all|ssot|simulator|maths-helper] [command]"
-            return 1
-            ;;
-    esac
-}
-
-# ------------------------------------------------------------
-# ALIAS
-# ------------------------------------------------------------
-alias gu='quick_git_update'
-alias guall='qgu all -ac "quick update of all projects" -s -p'
-
-all_() {
-    local project=("ssot" "simulator" "maths-helper")
+    local selected_projects=()
+    local git_args=()
+    
     local ssot_dir="$HOME/ssot"
     local simulator_dir="$HOME/simulator"
     local maths_dir="$HOME/.maths-helper"
 
+    # 1. คัดแยกชื่อโปรเจกต์
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            -ssot|--SSOT|--ssot|ssot)
+                selected_projects+=("ssot:$ssot_dir")
+                shift
+                ;;
+            -sim|--simulator|-d|--dice-simulator|sim|simulator)
+                selected_projects+=("simulator:$simulator_dir")
+                shift
+                ;;
+            -mhp|--maths|-m|--maths-helper|maths)
+                selected_projects+=("maths-helper:$maths_dir")
+                shift
+                ;;
+            -a|--all|all)
+                selected_projects=(
+                    "ssot:$ssot_dir"
+                    "simulator:$simulator_dir"
+                    "maths-helper:$maths_dir"
+                )
+                shift
+                ;;
+            *)
+                # พอเจอคำสั่งที่ไม่ใช่โปรเจกต์ ให้เบรกแล้วเก็บที่เหลือเป็นคำสั่ง Git
+                git_args=("$@")
+                break
+                ;;
+        esac
+    done
+
+    # 2. ถ้าไม่ได้ระบุโปรเจกต์เลย ให้เหมาหมด (All)
+    if [ ${#selected_projects[@]} -eq 0 ]; then
+        selected_projects=(
+            "ssot:$ssot_dir"
+            "simulator:$simulator_dir"
+            "maths-helper:$maths_dir"
+        )
+    fi
+
+    # ถ้าไม่ได้ใส่คำสั่งอะไรมา ให้ default เป็น status
+    if [ ${#git_args[@]} -eq 0 ]; then
+        git_args=("-s")
+    fi
+
+    # 3. ประมวลผลคำสั่ง Git วนลูปตามโปรเจกต์ที่ถูกเลือก
+    set -- "${git_args[@]}"
+
     while [[ $# -gt 0 ]]; do
         local cmd="$1"
 
-        for p in "${project[@]}"; do
-            local dir=""
-            case "$p" in
-                "ssot") dir="$ssot_dir" ;;
-                "simulator") dir="$simulator_dir" ;;
-                "maths-helper") dir="$maths_dir" ;;
-            esac
+        for item in "${selected_projects[@]}"; do
+            local p_name="${item%%:*}"
+            local p_dir="${item#*:}"
+
+            if [ ! -d "$p_dir" ]; then
+                echo "⚠️ ไม่พบโฟลเดอร์สำหรับ $p_name ที่ $p_dir"
+                continue
+            fi
 
             case "$cmd" in
-            -p|--push)
-                cn lg b "PUSHING ${p}"
-                cd "$dir" && git push
-                cn 235 b "-------------------------------"
-                echo ""
-                ;;
-            -ac|--add-commit)
-                cn lg b "ADD COMMIT ${p}"
-                cd "$dir" && git add -A && git commit -m "$2"
-                cn 235 b "-------------------------------"
-                echo ""
-                ;;
-            -pu|--pull)
-                cn lg b "PULLING ${p}"
-                cd "$dir" && git pull
-                cn 235 b "-------------------------------"
-                echo ""
-                ;;
-            -pure|--pull-rebase)
-                cn lg b "PULLING ${p}"
-                cd "$dir" &&  git config pull.rebase true && git pull &&
-                cn 235 b "-------------------------------"
-                echo ""
-                ;;
-            -s|--status)
-                cn lg b "GIT STATUS in ${p}"
-                cd "$dir" && git status
-                cn 235 b "-------------------------------"
-                echo ""
-                ;;
+                -p|--push)
+                    cn lg b "PUSHING ${p_name}"
+                    git -C "$p_dir" push
+                    cn 235 b "-------------------------------"
+                    echo ""
+                    ;;
+                -ac|--add-commit)
+                    local msg="${2:-update}"
+                    cn lg b "ADD COMMIT ${p_name}"
+                    git -C "$p_dir" add -A && git -C "$p_dir" commit -m "$msg"
+                    cn 235 b "-------------------------------"
+                    echo ""
+                    ;;
+                -pu|--pull)
+                    cn lg b "PULLING ${p_name}"
+                    git -C "$p_dir" pull
+                    cn 235 b "-------------------------------"
+                    echo ""
+                    ;;
+                -pure|--pull-rebase)
+                    cn lg b "PULLING (rebase) ${p_name}"
+                    git -C "$p_dir" config pull.rebase true && git -C "$p_dir" pull
+                    cn 235 b "-------------------------------"
+                    echo ""
+                    ;;
+                -s|--status)
+                    cn lg b "GIT STATUS in ${p_name}"
+                    git -C "$p_dir" status
+                    cn 235 b "-------------------------------"
+                    echo ""
+                    ;;
+                *)
+                    cn lg b "exec git $@ in ${p_name}"
+                    git -C "$p_dir" "$@"
+                    cn 235 b "-------------------------------"
+                    echo ""
+                    ;;
             esac
         done
 
-        # shift หลังจาก for loop รันครบทุก project
         case "$cmd" in
-            -ac|--add-commit) shift 2 ;;  # กิน 2 args (flag + message)
-            *)                shift 1 ;;  # กิน 1 arg
+            -ac|--add-commit) shift 2 ;;
+            -p|--push|-pu|--pull|-pure|--pull-rebase|-s|--status) shift 1 ;;
+            *) break ;;
         esac
     done
 }
 
-single_() {
-    local dir=""
-    local project="$1"
-    local ssot_dir="$HOME/ssot"
-    local simulator_dir="$HOME/simulator"
-    local maths_dir="$HOME/.maths-helper"
-    [[ $# -gt 0 ]] && shift
-
-    case "$project" in
-        -ssot|--SSOT|--ssot|ssot) dir="$ssot_dir" ;; 
-        -sim|--simulator|-d|--dice-simulator|sim|simulator) dir="$simulator_dir" ;; 
-        -mhp|--maths|-m|--maths-helper|maths) dir="$maths_dir" ;; 
-        *) echo "Error: Unknown project '$project'" >&2; return 1 ;; 
-    esac
-
-    while [[ $# -gt 0 ]]; do
-        local cmd="$1"
-
-        case "$cmd" in
-            -p|--push)
-                cn lg b "PUSHING $(basename "$dir")"
-                cd "$dir" && git push
-                cn 235 b "-------------------------------"  
-                echo ""
-                ;;
-            -ac|--add-commit)
-                cn lg b "ADD COMMIT $(basename "$dir")"
-                cd "$dir" && git add -A && git commit -m "$2"
-                cn 235 b "-------------------------------"  
-                echo ""
-                ;;
-            -pu|--pull)
-                cn lg b "PULLING $(basename "$dir")"
-                cd "$dir" && git pull
-                cn 235 b "-------------------------------"  
-                echo ""
-                ;;
-            -pure|--pull-rebase)
-                cn lg b "PULLING ${p}"
-                cd "$dir" &&  git config pull.rebase true && git pull &&
-                cn 235 b "-------------------------------"
-                echo ""
-                ;;
-            -s|--status)
-                cn lg b "GIT STATUS in $(basename "$dir")"
-                cd "$dir" && git status
-                cn 235 b "-------------------------------"  
-                echo ""
-                ;;
-        esac
-
-        # shift หลังจาก for loop รันครบทุก project
-        case "$cmd" in
-            -ac|--add-commit) shift 2 ;;  # กิน 2 args (flag + message)
-            *)                shift 1 ;;  # กิน 1 arg
-        esac
-    done
-}
+# ALIASES
+alias gu='quick_git_update'
+alias guall='gu all -ac "quick update of all projects" -s -p'
