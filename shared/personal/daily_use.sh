@@ -215,6 +215,12 @@ all_() {
                 cn 235 b "-------------------------------"
                 echo ""
                 ;;
+            -pure|--pull-rebase)
+                cn lg b "PULLING ${p}"
+                cd "$dir" &&  git config pull.rebase true && git pull &&
+                cn 235 b "-------------------------------"
+                echo ""
+                ;;
             -s|--status)
                 cn lg b "GIT STATUS in ${p}"
                 cd "$dir" && git status
@@ -267,6 +273,12 @@ single_() {
                 cn lg b "PULLING $(basename "$dir")"
                 cd "$dir" && git pull
                 cn 235 b "-------------------------------"  
+                echo ""
+                ;;
+            -pure|--pull-rebase)
+                cn lg b "PULLING ${p}"
+                cd "$dir" &&  git config pull.rebase true && git pull &&
+                cn 235 b "-------------------------------"
                 echo ""
                 ;;
             -s|--status)
