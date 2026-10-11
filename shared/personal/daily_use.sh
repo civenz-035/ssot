@@ -15,9 +15,9 @@ ssot_update() {
 	git commit -m "Update from $JOE_ENV"
 	git push &&
 	
-	local to_gb="cp -r "$hwsl2/ssot" "$hpc""
-	local to_wsl="cp -r "$hwsl2/ssot" "$hwsl""
-	local to_wsl2="cp -r "$hwsl2/ssot" "$hwsl2""
+	local to_gb="rsync -av --exclude='.git' "$hwsl2/ssot" "$hpc""
+	local to_wsl="rsync -av --exclude='.git "$hwsl2/ssot" "$hwsl""
+	local to_wsl2="rsync -av --exclude='.git' "$hwsl2/ssot" "$hwsl2""
 
 	case "${1:-}" in 
 		"gb") eval "$to_gb" && echo "done sync to git-bash" ;;
