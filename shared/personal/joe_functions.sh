@@ -247,7 +247,7 @@ link2bin(){
  }
 
 
-basecalc() {
+bbcalc() {
 
     # --- source maths functions ---
         
