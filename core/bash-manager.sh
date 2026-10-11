@@ -237,12 +237,12 @@ _confirm() {
 
 _human_size() {
   local bytes=${1:-0}
-  if ! command -v bc_ >/dev/null 2>&1 && [[ -f "${SCRIPTS_PATH:-$HOME/ssot}/functions/00.1-function-tools.sh" ]]; then
+  if ! command -v mth >/dev/null 2>&1 && [[ -f "${SCRIPTS_PATH:-$HOME/ssot}/functions/00.1-function-tools.sh" ]]; then
     source "${SCRIPTS_PATH:-$HOME/ssot}/functions/00.1-function-tools.sh" 2>/dev/null
   fi
-  if   (( bytes >= 1073741824 )); then printf "%s GB" "$(bc_ 1 "$bytes/1073741824")"
-  elif (( bytes >= 1048576    )); then printf "%s MB" "$(bc_ 1 "$bytes/1048576")"
-  elif (( bytes >= 1024       )); then printf "%s KB" "$(bc_ 1 "$bytes/1024")"
+  if   (( bytes >= 1073741824 )); then printf "%s GB" "$(mth 1 "$bytes/1073741824")"
+  elif (( bytes >= 1048576    )); then printf "%s MB" "$(mth 1 "$bytes/1048576")"
+  elif (( bytes >= 1024       )); then printf "%s KB" "$(mth 1 "$bytes/1024")"
   else printf "%d B" "$bytes"; fi
 }
 
