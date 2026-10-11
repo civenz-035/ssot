@@ -206,6 +206,18 @@ if __name__ == '__main__':
 EOF
 }
 
+mi() {
+    if [[ "${1:-}" == "i" ]]; then
+        mine -mode inverse -payout "${2:-}"
+    elif [[ -z "${1:-}" || "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+        echo "Usage: mi <mine> <diamond> [bet]  |  mi i <payout>"
+        echo "Examples: mi 10 10 1"
+        echo "          mi i 3000"
+    else
+        mine -mode payout -m "$1" -d "${2:-}" -b "${3:-1}"
+    fi
+}
+
 # Allow script to be executed directly if not sourced
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     set -uo pipefail
