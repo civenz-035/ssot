@@ -64,7 +64,7 @@ link_check(){
 
 link_(){
     case "$1" in
-        -r|relink)
+        -r--ssot|--relink-ssot)
             # ตรวจสอบความพร้อมของ Base Environment
             local ssot_dir="${SSOT:-$HOME/ssot}"
             local node_host="${NODE_HOST:-$(echo "${JOE_ENV:-wsl2}" | tr '[:upper:]' '[:lower:]')}"
@@ -83,7 +83,7 @@ link_(){
                 ["$HOME/.local/bin/shared"]="$ssot_dir/tools/sync_shared.sh"
                 ["$HOME/.local/bin/env"]="$ssot_dir/bootstrap/templates/env"
                 ["$ssot_dir/.env"]="$HOME/.env"
-                ["$ssot_dir/.env.secret"]="$HOME/.env.secret"
+                ["$mth_dir/.env.secret"]="$HOME/.env.secret"
             )
 
             # 1. Clean State: บังคับลบเฉพาะ Target ที่เป็น Symlink เก่าทิ้งเพื่อเตรียมสร้างใหม่
@@ -111,7 +111,79 @@ link_(){
                 fi
             done
             ;;
+		r--mth|--relink-math)
+            # ตรวจสอบความพร้อมของ Base Environment
+            local mth_dir="${mhp-$HOME/.maths-helper}"
+            local $bin_dir="${bin:-}"
 
+            if [[ ! -d "$mth_dir" ]]; then
+                cn 1 b "maths helper not found: $mth_dir"
+                return 1
+            fi
+
+            # แมปปิ้ง Target (Symlink) -> Source (ไฟล์ต้นทาง) ตามมาตรฐาน SSOT Infrastructure
+            local -A links=(
+                ["$HOME/.local/bin/mth"]="$mth_dir/bin/mth"
+                ["$HOME/.local/bin/slv"]="$mth_dir/bin/slv"
+                ["$HOME/.local/bin/cals"]="$mth_dir/bin/mth"
+                ["$HOME/.local/bin/solve"]="$mth_dir/bin/slv
+                ["$mth_dir/.env"]="$HOME/.env"
+                ["$mth_dir/.env.secret"]="$HOME/.env.secret"
+            )
+
+            # 1. Clean State: บังคับลบเฉพาะ Target ที่เป็น Symlink เก่าทิ้งเพื่อเตรียมสร้างใหม่
+            for target in "${!links[@]}"; do
+                local target_path="${target/#$HOME/\~}"
+                if [[ -L "$target" ]]; then
+                    rm -f "$target"
+                    cn 250 b "cleaned symlink: $target_path"
+                elif [[ -e "$target" ]]; then
+                    cn 214 b "skip non-symlink (preserving file): $target_path"
+                fi
+            done
+
+            # 2. ป้องกันกรณีไดเรกทอรีปลายทางยังไม่ถูกสร้าง
+            mkdir -p "$HOME/.local/bin"
+
+            # 3. Re-link ใหม่ทั้งหมดจาก Clean State
+            for target in "${!links[@]}"; do
+                local source="${links[$target]}"
+                local source_path="${source/#$HOME/\~}"
+                if [[ -e "$source" ]]; then
+                    ln -sf "$source" "$target" && cn lg b "done symlink $source_path -> ${target/#$HOME/\~}"
+                else
+                    cn 1 b "source not found: $source_path"
+                fi
+            done
+            ;;
+        -c|check)
+            local directory="$2"
+            local file_to=""
+            if [[ -z "$directory" || ! -d "$directory" ]]; then
+                cn 1 b "Error: Please specify a valid directory. (e.g. link_ check /path/to/dir)"
+                return 1
+            fi
+
+            local count=0
+            while IFS= read -r -d '' f; do
+                file_to=$(readlink "$f" 2>/dev/null)
+                
+                # ตรวจสอบว่า Target ปลายทางมีอยู่จริงหรือไม่
+                if [[ -e "$f" ]]; then
+                    cn 250 b "${f/#$HOME/\~} -> $(cn 45 b "${file_to/#$HOME/\~}")"
+                else
+                    cn 1 b "${f/#$HOME/\~} -> $(cn 1 b "${file_to/#$HOME/\~} [BROKEN]")"
+                fi
+                (( count++ ))
+            done < <(find "$directory" -maxdepth 1 -type l -print0 2>/dev/null)
+
+            if [[ $count -eq 0 ]]; then
+                echo "No links found in $directory"
+            else
+                echo "Total links: $count"
+            fi
+            ;;
+			
         -c|check)
             local directory="$2"
             local file_to=""
