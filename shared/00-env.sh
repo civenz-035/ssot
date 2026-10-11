@@ -103,7 +103,7 @@ esac
 # ============================================================
 # 2. GLOBAL VARIABLE
 # ============================================================
-export h="${#$HOME/\~}"
+export h="${HOME#$HOME/\~}"  # -- display string ~ instead of long path of home dir
 export DICE_SIM_DIR="$HOME/dice-simulator"
 export dsd="$DICE_SIM_DIR"
 export _py=${PYTHON_BIN}
