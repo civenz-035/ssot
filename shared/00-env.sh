@@ -103,6 +103,7 @@ esac
 # ============================================================
 # 2. GLOBAL VARIABLE
 # ============================================================
+export h="${#$HOME/\~}"
 export DICE_SIM_DIR="$HOME/dice-simulator"
 export dsd="$DICE_SIM_DIR"
 export _py=${PYTHON_BIN}
