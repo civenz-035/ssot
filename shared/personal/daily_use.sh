@@ -28,7 +28,7 @@ ssot_update() {
 	
 	
 }
-
+alias s2='ssot_update'
 alias dice="bash $sim/bin/roll.sh"
 alias dicepy="$_py $sim/bin/roll.py"
 alias dcf='micro $sim/config/dice.env'
