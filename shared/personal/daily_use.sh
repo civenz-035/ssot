@@ -7,28 +7,7 @@ bep20(){
 		cb_copy "$ads"
 }
 
-# -- ssot sync to git-bash || wsl || wsl2
-ssot_update() {
-	
-	cd "$HOME/ssot" || return 1
-	git add .
-	git commit -m "Update from $JOE_ENV"
-	git push &&
-	
-	local to_gb="rsync -av --exclude='.git' "$hwsl2/ssot" "$hpc""
-	local to_wsl="rsync -av --exclude='.git "$hwsl2/ssot" "$hwsl""
-	local to_wsl2="rsync -av --exclude='.git' "$hwsl2/ssot" "$hwsl2""
 
-	case "${1:-}" in 
-		"gb") eval "$to_gb" && echo "done sync to git-bash" ;;
-		"wsl") eval "$to_wsl" && echo "done sync to wsl" ;;
-		"wsl2") eval "$to_wsl2" && echo "done sync to wsl2" ;;
-		*) echo "Usage: upssot [gb|wsl|wsl2]" ;;
-	esac
-	
-	
-}
-alias s2='ssot_update'
 alias dice="bash $sim/bin/roll.sh"
 alias dicepy="$_py $sim/bin/roll.py"
 alias dcf='micro $sim/config/dice.env'
@@ -143,13 +122,14 @@ gclone() {
     fi
 }
 
-quick_git_update() {
+multi_git_manager() {
     local selected_projects=()
     local git_args=()
     
-    local ssot_dir="$HOME/ssot"
-    local simulator_dir="$HOME/simulator"
-    local maths_dir="$HOME/.maths-helper"
+    # 0. อ้างอิงตัวแปรสภาพแวดล้อม SSOT เป็นหลัก (Fallback เข้า Path เริ่มต้น)
+    local ssot_dir="${SSOT_DIR:-$HOME/ssot}"
+    local simulator_dir="${DICE_SIM_DIR:-${sim:-$HOME/simulator}}"
+    local maths_dir="${MATHS_HELPER_DIR:-$HOME/.maths-helper}"
 
     # 1. คัดแยกชื่อโปรเจกต์
     while [[ $# -gt 0 ]]; do
@@ -175,14 +155,13 @@ quick_git_update() {
                 shift
                 ;;
             *)
-                # พอเจอคำสั่งที่ไม่ใช่โปรเจกต์ ให้เบรกแล้วเก็บที่เหลือเป็นคำสั่ง Git
                 git_args=("$@")
                 break
                 ;;
         esac
     done
 
-    # 2. ถ้าไม่ได้ระบุโปรเจกต์เลย ให้เหมาหมด (All)
+    # 2. Default: เหมาหมดทุกโปรเจกต์ ถ้าไม่ได้ระบุ
     if [ ${#selected_projects[@]} -eq 0 ]; then
         selected_projects=(
             "ssot:$ssot_dir"
@@ -191,16 +170,26 @@ quick_git_update() {
         )
     fi
 
-    # ถ้าไม่ได้ใส่คำสั่งอะไรมา ให้ default เป็น status
+    # Default: ถ้าไม่มีคำสั่ง Git ให้ใช้ Quick Status (-q)
     if [ ${#git_args[@]} -eq 0 ]; then
-        git_args=("-s")
+        git_args=("-q")
     fi
 
-    # 3. ประมวลผลคำสั่ง Git วนลูปตามโปรเจกต์ที่ถูกเลือก
+    # 3. วนลูปประมวลผลคำสั่ง Git
     set -- "${git_args[@]}"
 
     while [[ $# -gt 0 ]]; do
         local cmd="$1"
+        local shift_count=1
+        local commit_msg="update"
+
+        # ตรวจสอบ Message ของ -ac อย่างปลอดภัย (ไม่กลืนคำสั่งถัดไป)
+        if [[ "$cmd" == "-ac" || "$cmd" == "--add-commit" || "$cmd" == "-sync" || "$cmd" == "--sync" ]]; then
+            if [[ -n "${2:-}" && "$2" != -* ]]; then
+                commit_msg="$2"
+                shift_count=2
+            fi
+        fi
 
         for item in "${selected_projects[@]}"; do
             local p_name="${item%%:*}"
@@ -211,55 +200,83 @@ quick_git_update() {
                 continue
             fi
 
+            # ดึงชื่อ branch ปัจจุบันเพื่อแสดงผล
+            local current_branch
+            current_branch="$(git -C "$p_dir" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")"
+
             case "$cmd" in
+                -q|--quick-status)
+                    cn lg b "[$p_name @ $current_branch]"
+                    git -C "$p_dir" status -sb
+                    echo ""
+                    ;;
+                -s|--status)
+                    cn lg b "GIT STATUS: $p_name ($current_branch)"
+                    git -C "$p_dir" status
+                    cn 235 b "-------------------------------"
+                    echo ""
+                    ;;
+                -pu|--pull)
+                    cn lg b "PULLING: $p_name ($current_branch)"
+                    git -C "$p_dir" pull --rebase
+                    cn 235 b "-------------------------------"
+                    echo ""
+                    ;;
                 -p|--push)
-                    cn lg b "PUSHING ${p_name}"
+                    cn lg b "PUSHING: $p_name ($current_branch)"
                     git -C "$p_dir" push
                     cn 235 b "-------------------------------"
                     echo ""
                     ;;
                 -ac|--add-commit)
-                    local msg="${2:-update}"
-                    cn lg b "ADD COMMIT ${p_name}"
-                    git -C "$p_dir" add -A && git -C "$p_dir" commit -m "$msg"
+                    cn lg b "ADD & COMMIT: $p_name ($current_branch) -> \"$commit_msg\""
+                    git -C "$p_dir" add -A
+                    # ตรวจสอบก่อนว่ามีอะไรให้ commit หรือไม่ ป้องกัน error แดงหลอก
+                    if git -C "$p_dir" diff --cached --quiet; then
+                        echo "  (No changes to commit)"
+                    else
+                        git -C "$p_dir" commit -m "$commit_msg"
+                    fi
                     cn 235 b "-------------------------------"
                     echo ""
                     ;;
-                -pu|--pull)
-                    cn lg b "PULLING ${p_name}"
-                    git -C "$p_dir" pull
-                    cn 235 b "-------------------------------"
-                    echo ""
-                    ;;
-                -pure|--pull-rebase)
-                    cn lg b "PULLING (rebase) ${p_name}"
-                    git -C "$p_dir" config pull.rebase true && git -C "$p_dir" pull
-                    cn 235 b "-------------------------------"
-                    echo ""
-                    ;;
-                -s|--status)
-                    cn lg b "GIT STATUS in ${p_name}"
-                    git -C "$p_dir" status
+                -sync|--sync)
+                    cn lg b "FULL SYNC: $p_name ($current_branch)"
+                    echo "1. Pulling latest changes..."
+                    git -C "$p_dir" pull --rebase
+                    echo "2. Adding and committing..."
+                    git -C "$p_dir" add -A
+                    if git -C "$p_dir" diff --cached --quiet; then
+                        echo "  (Nothing to commit)"
+                    else
+                        git -C "$p_dir" commit -m "$commit_msg"
+                    fi
+                    echo "3. Pushing..."
+                    git -C "$p_dir" push
                     cn 235 b "-------------------------------"
                     echo ""
                     ;;
                 *)
-                    cn lg b "exec git $@ in ${p_name}"
+                    cn lg b "EXEC: git $@ in $p_name"
                     git -C "$p_dir" "$@"
                     cn 235 b "-------------------------------"
                     echo ""
+                    shift_count=$#  # ส่ง arguments ที่เหลือให้คำสั่งนี้ทั้งหมด
                     ;;
             esac
         done
 
-        case "$cmd" in
-            -ac|--add-commit) shift 2 ;;
-            -p|--push|-pu|--pull|-pure|--pull-rebase|-s|--status) shift 1 ;;
-            *) break ;;
-        esac
+        shift "$shift_count"
     done
 }
 
+
 # ALIASES
-alias gu='quick_git_update'
-alias guall='gu all -ac "quick update of all projects" -s -p'
+alias gu='multi_git_manager'
+alias guall='gu all -sync "quick update of all projects"'
+git_note(){
+
+    file_path="$hpc/Desktop/main_sync/git knowledge/Git basic.md"
+    cat "$file_path"
+
+}

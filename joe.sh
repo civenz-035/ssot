@@ -66,24 +66,24 @@ case "$JOE_ENV" in
         export SSH_PORT=8020
         ;;
     WSL)
-	      export hpc="/mnt/c/Users/User"
+	    export hpc="/mnt/c/Users/User"
         export DASHBOARD_DIR="$HOME/dashboard"
         export PYTHON_VENV="${PYTHON_VENV:-$HOME/.venv/bin/activate}"
         export OBSIDIAN_VAULT="$hpc/DESKTOP/obsidian/alphadev_vaults"
         export home="$HOME"
         export nexus_vault="$HOME/nexus_vault"
-        export MAIN_SYNC_DIR="$HOME/main_sync"
+        export MAIN_SYNC_DIR="$hpc/DESKTOP/main_sync"
         export SSH_PORT=2222
 
         ;;
     WSL2)
-	     export hpc="/mnt/c/Users/User"
+	    export hpc="/mnt/c/Users/User"
         export DASHBOARD_DIR="$HOME/dashboard"
         export PYTHON_VENV="${PYTHON_VENV:-$HOME/.venv/bin/activate}"
         export OBSIDIAN_VAULT="$hpc/DESKTOP/obsidian/alphadev_vaults"
         export home="$HOME"
         export nexus_vault="$HOME/nexus_vault"
-        export MAIN_SYNC_DIR="$HOME/main_sync"
+        export MAIN_SYNC_DIR="$hpc/DESKTOP/main_sync"
         export SSH_PORT=2223
 
         ;;
@@ -124,8 +124,8 @@ esac
         export SSH_WSL_PORT=2222
         export SSH_WSL2_PORT=2223
         export SSH_WIN_PORT=22
-				export SSH_ACODEX_PORT=8021
-				export SSH_OPPO_PORT=8023
+		export SSH_ACODEX_PORT=8021
+		export SSH_OPPO_PORT=8023
 
 
 
