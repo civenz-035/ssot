@@ -104,7 +104,8 @@ esac
 # 2. GLOBAL VARIABLE
 # ============================================================
 export h="${HOME#$HOME/\~}"  # -- display string ~ instead of long path of home dir
-export DICE_SIM_DIR="$HOME/dice-simulator"
+export MATHS_HELPER_DIR="$HOME/.maths-helper"
+export DICE_SIM_DIR="$HOME/simulator"
 export dsd="$DICE_SIM_DIR"
 export _py=${PYTHON_BIN}
 export hwsl=${HWSL}
@@ -167,7 +168,7 @@ ai_bin
 
 # 
 # Dice Simulator — standalone repo (github.com/civenz-035/dice-simulator)
-export DICE_SIM_DIR="${DICE_SIM_DIR:-$HOME/math-simulator}"
+export DICE_SIM_DIR="${DICE_SIM_DIR:-$HOME/simulator}"
 
 # ============================================================
 # 3. PYTHON & VIRTUAL ENVIRONMENT
@@ -412,6 +413,6 @@ esac
 export BEP20_BK=0x5C7D1Da0862F8865C328c8CDE22B3C1168dA2740
 export POL_BK=$BEP20_BK
 
-export sim="$HOME/simulator"
-export mhp="$HOME/.maths-helper"
+export sim="$DICE_SIM_DIR"
+export mhp="$MATHS_HELPER_DIR"
 
