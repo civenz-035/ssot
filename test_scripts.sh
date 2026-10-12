@@ -3,36 +3,51 @@
 # File: test_scripts.sh
 # ------------------------------------------------------------
 
-source "$HOME/.maths-helper/maths.sh" || exit 1
+source "$HOME/.maths-helper/maths.sh" 
+source "$HOME/ssot/shared/personal/joe_functions.sh"
 
 
-mul=$(mth "$a*$b")
-add=$(mth "$a+$b")
-sub=$(mth "$a-$b")
-div=$(mth "$a/$b")
-rem=$(mth "$a%$b")
+mul() {
+	mth "$1*$2" 8;
+	}
+add() {
+	mth "$1+$2" 8;
+	}
+sub() {
+	mth "$1-$2" 8;
+	}
+div() {
+	mth "$1/$2" 8;
+	}
+rem() {
+	mth "$1%$2" 8;
+	}
 
 
 
+bal=$1 roll=$2 multi=$3
+loss_streak=0
 
-a=10 
-b=10 
-echo "$a * $b = $mul"
-echo "$a + $b = $add"
-echo "$a - $b = $sub"
-echo "$a / $b = $div"
-echo "$a % $b = $rem"
-echo "$a ^ $b = $ยกกำลัง"
-echo "sqrt($a) = $รากที่สอง"
-echo "cbrt($a) = $รากที่สาม"
-echo "abs($a) = $ค่าสัมบูรณ์"
-echo "ceil($a) = $ปัดเศษขึ้น"
-echo "floor($a) = $ปัดเศษลง"
-echo "round($a) = $ปัดเศษใกล้"
-echo "sin($a) = $ตรีโกณมิติ"
-echo "exp($a) = $เลขยกกำลังฐาน e"
-echo "log($a) = $ลอการิทึมธรรมชาติ"
-echo "log10($a) = $ลอการิทึมฐาน 10"
-echo "pow2($a) = $เลขชี้กำลังฐาน 2"
 
-           
+base_bet=
+dobet() {
+    local current_bet="${1:-$nextbet}"
+    if ! fgte "$balance" "$current_bet"; then
+        cn 196 b "BUST: balance too low for next bet ($current_bet)"
+        return 1
+    fi
+    balance=$(fsub "$balance" "$current_bet")
+    total_loss=$(fsub "$start_bal" "$balance")
+    (( loss_streak++ ))
+    (( lose_count++ ))
+    cn 214 "  Bet #${lose_count} | bet=$current_bet | balance=$balance | total_loss=$total_loss"
+}
+
+
+while (( loss_streak<=roll )) ; do
+	(( loss_streak ++ ))
+	dobet $balace $bet $multi
+done
+
+
+

@@ -242,17 +242,20 @@ multi_git_manager() {
                     ;;
                 -sync|--sync)
                     cn lg b "FULL SYNC: $p_name ($current_branch)"
-                    echo "1. Pulling latest changes..."
-                    git -C "$p_dir" pull --rebase
-                    echo "2. Adding and committing..."
+                    echo "1. Adding and committing..."
                     git -C "$p_dir" add -A
                     if git -C "$p_dir" diff --cached --quiet; then
                         echo "  (Nothing to commit)"
                     else
                         git -C "$p_dir" commit -m "$commit_msg"
                     fi
-                    echo "3. Pushing..."
-                    git -C "$p_dir" push
+                    echo "2. Pulling latest changes..."
+                    if git -C "$p_dir" pull --rebase; then
+                        echo "3. Pushing..."
+                        git -C "$p_dir" push
+                    else
+                        echo "⚠️ Pull with rebase failed (check conflicts)"
+                    fi
                     cn 235 b "-------------------------------"
                     echo ""
                     ;;

@@ -35,16 +35,16 @@ dobet() {
 }
 
 # ─── INPUTS ─────────────────────────────
-start_bal=100
+start_bal=$1
 wallet=0          # เงินสำรองในกระเป๋า (reload ได้)
-multiplier=2
-max_allowed_loss_streak=10
+multiplier=$3
+max_allowed_loss_streak=$2
 
 # ─── INIT ───────────────────────────────
 balance=$start_bal
 loss_streak=0
 lose_count=0
-nextbet=0
+nextbet=
 
 cn 33 b "=== Losing Streak Simulator ==="
 cn 33   "  start=$start_bal | mult=$multiplier | max_streak=$max_allowed_loss_streak"
