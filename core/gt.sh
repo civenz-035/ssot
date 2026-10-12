@@ -46,7 +46,21 @@ gt_registry_init() {
         path="${path%"${path##*[![:space:]]}"}"
 
         # Allow ~/path without executing shell code
-        [[ "$path" == "~/"* ]] && path="$HOME/${path#~/}"
+        # NOTE: pattern must be quoted ("~/") — bare ${path#~/}
+        # tilde-expands ~/ to $HOME before stripping, so nothing
+        # is stripped and you get /home/user/~/ssot.
+        if [[ "$path" == "~" ]]; then
+            path="$HOME"
+        elif [[ "$path" == "~/"* ]]; then
+            path="$HOME/${path#"~/"}"
+        fi
+
+        # Canonicalize short aliases so config entries using
+        # sim/mhp don't create duplicate projects
+        case "$name" in
+            sim) name="simulator" ;;
+            maths|mhp) name="maths-helper" ;;
+        esac
 
         if [[ ! "$name" =~ ^[a-zA-Z0-9_-]+$ || -z "$path" ]]; then
             printf 'gt: invalid project entry: %s\n' "$line" >&2
@@ -81,6 +95,7 @@ gt_msg() {
 }
 
 gt_ok()   { printf '  [OK]   %s\n' "$*"; }
+gt_warn() { printf '  [WARN] %s\n' "$*"; }
 gt_skip() { printf '  [SKIP] %s\n' "$*"; }
 gt_fail() { printf '  [FAIL] %s\n' "$*" >&2; }
 
@@ -100,6 +115,7 @@ Commands:
   sync      Commit, fetch, rebase, then push
   diff      Show unstaged and staged changes
   log       Show recent commits
+  doctor    Health check (read-only, one-line summary per project)
   exec      Run a raw Git command
 
 Projects:
@@ -110,6 +126,9 @@ Options:
   -m MESSAGE    Commit message
   --add         Stage all changes before committing
   --dry-run     Preview planned operations
+  --network     doctor: also check remote reachability (local-only by default)
+  --fix         doctor: apply safe fixes (fetch --prune, set upstream from
+                existing remote-tracking ref; never touches working tree)
   -h, --help    Show this help
 
 Examples:
@@ -120,6 +139,9 @@ Examples:
   gt commit ssot --add -m "fix bootstrap"
   gt sync all --add -m "daily update"
   gt diff ssot
+  gt doctor
+  gt doctor all --network
+  gt doctor ssot --fix --dry-run
   gt exec ssot log -5 --oneline
 
 Config format (one project per line):
@@ -313,6 +335,200 @@ gt_sync_repo() {
 }
 
 # ------------------------------------------------------------
+# 6b. Doctor (local health check + safe --fix)
+# ------------------------------------------------------------
+# Read-only by default. --fix only applies safe operations:
+#   - fetch --prune (only with --network)
+#   - set upstream to an already-existing remote-tracking ref
+# Never touches the working tree (no add/commit/checkout/reset).
+
+gt_doctor_repo() {
+    local name="$1"
+    local dir="${GT_PROJECTS[$name]}"
+    local status="OK"
+    local note=""
+    local branch="" remote="origin" url=""
+    local ahead=0 behind=0
+    local staged=0 unstaged=0 untracked=0 stashes=0
+
+    gt_msg "$name"
+
+    # 1. Directory -------------------------------------------------
+    if [[ ! -d "$dir" ]]; then
+        gt_fail "$name: directory not found: $dir"
+        GT_DOCTOR_SUMMARY+=("$name|FAIL|missing dir")
+        return 1
+    fi
+
+    # 2. Git repository --------------------------------------------
+    if ! git -C "$dir" rev-parse --git-dir >/dev/null 2>&1; then
+        gt_fail "$name: not a Git repository: $dir"
+        GT_DOCTOR_SUMMARY+=("$name|FAIL|not a git repo")
+        return 1
+    fi
+
+    # 3. Branch ----------------------------------------------------
+    if branch="$(git -C "$dir" symbolic-ref --quiet \
+            --short HEAD 2>/dev/null)"; then
+        gt_ok "branch: $branch"
+    else
+        gt_fail "detached HEAD"
+        status="FAIL"
+        note="detached HEAD"
+        branch=""
+    fi
+
+    # Resolve remote name early (branch config, fallback origin).
+    if [[ -n "$branch" ]]; then
+        remote="$(git -C "$dir" config \
+            "branch.$branch.remote" 2>/dev/null || echo origin)"
+    fi
+    url="$(git -C "$dir" config "remote.$remote.url" \
+        2>/dev/null || true)"
+
+    # 4. Safe fixes that need the network ---------------------------
+    if (( GT_FIX )) && (( GT_DOCTOR_NETWORK )) && [[ -n "$url" ]]; then
+        if (( GT_DRY_RUN )); then
+            printf '  Would fetch --prune %s.\n' "$remote"
+        elif git -C "$dir" fetch --prune "$remote" \
+                >/dev/null 2>&1; then
+            gt_ok "fetched --prune $remote"
+        else
+            gt_fail "fetch --prune $remote failed"
+            status="FAIL"
+        fi
+    fi
+
+    # 5. Upstream ---------------------------------------------------
+    if gt_has_upstream "$dir"; then
+        gt_ok "upstream: $(git -C "$dir" rev-parse --abbrev-ref \
+            --symbolic-full-name '@{u}' 2>/dev/null)"
+    else
+        if (( GT_FIX )) && [[ -n "$branch" ]] && \
+            git -C "$dir" rev-parse --verify --quiet \
+                "refs/remotes/$remote/$branch" >/dev/null 2>&1; then
+            if (( GT_DRY_RUN )); then
+                printf '  Would set upstream to %s/%s.\n' \
+                    "$remote" "$branch"
+                gt_warn "no upstream configured ($remote/$branch exists)"
+            elif git -C "$dir" branch \
+                    --set-upstream-to="$remote/$branch" "$branch" \
+                    >/dev/null 2>&1; then
+                gt_ok "upstream set to $remote/$branch"
+            else
+                gt_fail "could not set upstream to $remote/$branch"
+                status="FAIL"
+            fi
+        else
+            gt_warn "no upstream configured"
+            [[ "$status" != "FAIL" ]] && status="WARN"
+        fi
+    fi
+
+    # 6. Remote reachability (opt-in) --------------------------------
+    if (( GT_DOCTOR_NETWORK )); then
+        if [[ -z "$url" ]]; then
+            gt_warn "no URL for remote '$remote'; skipping reachability check"
+            [[ "$status" == "OK" ]] && status="WARN"
+        else
+            local -a _probe=(git -C "$dir" ls-remote \
+                --exit-code "$remote" HEAD)
+            if command -v timeout >/dev/null 2>&1; then
+                _probe=(timeout 10 "${_probe[@]}")
+            fi
+            if "${_probe[@]}" >/dev/null 2>&1; then
+                gt_ok "remote reachable: $remote"
+            else
+                gt_fail "remote unreachable: $remote ($url)"
+                status="FAIL"
+            fi
+        fi
+    else
+        gt_skip "remote check skipped (use --network)"
+    fi
+
+    # 7. Ahead / behind ----------------------------------------------
+    if gt_has_upstream "$dir"; then
+        if read -r ahead behind < <(git -C "$dir" rev-list \
+                --left-right --count 'HEAD...@{u}' 2>/dev/null); then
+            if (( ahead == 0 && behind == 0 )); then
+                gt_ok "up-to-date with upstream"
+            else
+                gt_warn "ahead $ahead, behind $behind"
+                [[ "$status" == "OK" ]] && status="WARN"
+            fi
+        fi
+    fi
+
+    # 8. Working tree -------------------------------------------------
+    staged="$(git -C "$dir" diff --cached --numstat 2>/dev/null \
+        | wc -l)"
+    unstaged="$(git -C "$dir" diff --numstat 2>/dev/null | wc -l)"
+    untracked="$(git -C "$dir" ls-files --others --exclude-standard \
+        2>/dev/null | wc -l)"
+    if (( staged == 0 && unstaged == 0 && untracked == 0 )); then
+        gt_ok "working tree clean"
+    else
+        gt_warn "dirty: $staged staged, $unstaged unstaged, $untracked untracked"
+        [[ "$status" == "OK" ]] && status="WARN"
+    fi
+
+    # 9. Stash ----------------------------------------------------------
+    stashes="$(git -C "$dir" stash list 2>/dev/null | wc -l)"
+    if (( stashes > 0 )); then
+        gt_warn "$stashes stash entr$( (( stashes == 1 )) \
+            && echo 'y' || echo 'ies') kept"
+        [[ "$status" == "OK" ]] && status="WARN"
+    else
+        gt_ok "no stashes"
+    fi
+
+    # 10. Merge / rebase in progress --------------------------------------
+    local _gitdir
+    _gitdir="$(git -C "$dir" rev-parse --absolute-git-dir 2>/dev/null)"
+    if [[ -n "$_gitdir" ]] && [[ -e "$_gitdir/MERGE_HEAD" || \
+            -d "$_gitdir/rebase-merge" || -d "$_gitdir/rebase-apply" || \
+            -e "$_gitdir/CHERRY_PICK_HEAD" ]]; then
+        gt_fail "merge/rebase/cherry-pick in progress; resolve before sync"
+        status="FAIL"
+    else
+        gt_ok "no merge/rebase in progress"
+    fi
+
+    # 11. Identity ----------------------------------------------------------
+    if [[ -z "$(git -C "$dir" config user.name 2>/dev/null)" || \
+          -z "$(git -C "$dir" config user.email 2>/dev/null)" ]]; then
+        gt_warn "user.name/user.email not set (commit will fail)"
+        [[ "$status" == "OK" ]] && status="WARN"
+    else
+        gt_ok "identity: $(git -C "$dir" config user.name) <$(git -C "$dir" \
+            config user.email)>"
+    fi
+
+    # 12. Remote URL -----------------------------------------------------------
+    if [[ -z "$url" ]]; then
+        gt_warn "no remote URL configured"
+        [[ "$status" == "OK" ]] && status="WARN"
+    else
+        gt_ok "remote: $url"
+    fi
+
+    # Summary note ---------------------------------------------------------------
+    if [[ -z "$note" ]]; then
+        if [[ "$status" == "OK" ]]; then
+            note="clean"
+            if (( ahead == 0 && behind == 0 )) && gt_has_upstream "$dir"; then
+                note="clean, up-to-date"
+            fi
+        else
+            note="see $status lines above"
+        fi
+    fi
+    GT_DOCTOR_SUMMARY+=("$name|$status|$note")
+    [[ "$status" == "OK" ]]
+}
+
+# ------------------------------------------------------------
 # 7. Command dispatcher
 # ------------------------------------------------------------
 
@@ -325,11 +541,14 @@ gt() {
     GT_MESSAGE="update"
     GT_ADD=0
     GT_DRY_RUN=0
+    GT_DOCTOR_NETWORK=0
+    GT_FIX=0
 
-    # First argument may be a command or an option.
+    # First argument may be a command (help flags are parsed
+    # in the loop below so `gt --help` / `gt -h` work).
     if [[ $# -gt 0 ]]; then
         case "$1" in
-            status|fetch|pull|commit|push|sync|diff|log|exec|-h|--help)
+            status|fetch|pull|commit|push|sync|diff|log|doctor|exec)
                 cmd="$1"
                 shift
                 ;;
@@ -360,6 +579,14 @@ gt() {
                 GT_DRY_RUN=1
                 shift
                 ;;
+            --network)
+                GT_DOCTOR_NETWORK=1
+                shift
+                ;;
+            --fix)
+                GT_FIX=1
+                shift
+                ;;
             --)
                 shift
                 raw_args+=("$@")
@@ -367,6 +594,11 @@ gt() {
                 ;;
             *)
                 if [[ "$cmd" == "exec" ]]; then
+                    # First non-option arg is the project,
+                    # everything after it is a raw git argument
+                    # (even flags like -m/--add must not be parsed).
+                    projects+=("$1")
+                    shift
                     raw_args+=("$@")
                     break
                 fi
@@ -388,6 +620,10 @@ gt() {
             gt_fail "exec requires exactly one project"
             return 2
         }
+        case "$project" in
+            sim) project="simulator" ;;
+            maths|mhp) project="maths-helper" ;;
+        esac
         [[ ${GT_PROJECTS[$project]+_} ]] || {
             gt_fail "Unknown project: $project"
             return 2
@@ -397,6 +633,28 @@ gt() {
     fi
 
     gt_select_projects "${projects[@]}" || return $?
+
+    if [[ "$cmd" == "doctor" ]]; then
+        GT_DOCTOR_SUMMARY=()
+        local drc=0 row sname sstat snote srest
+        local dname
+
+        for dname in "${GT_SELECTED[@]}"; do
+            gt_doctor_repo "$dname" || drc=1
+            printf '\n'
+        done
+
+        printf 'Summary:\n'
+        for row in "${GT_DOCTOR_SUMMARY[@]}"; do
+            sname="${row%%|*}"
+            srest="${row#*|}"
+            sstat="${srest%%|*}"
+            snote="${srest#*|}"
+            printf '  %-14s %-7s %s\n' "$sname" "$sstat" "$snote"
+        done
+
+        return "$drc"
+    fi
 
     if [[ "$cmd" == "commit" && "$message_set" -eq 0 ]]; then
         GT_MESSAGE="update"
