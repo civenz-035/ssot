@@ -280,12 +280,27 @@ ssot_load(){
 #-- Global shell refresh
 refresh_shell() {
 
-    if (( $# > 0 )); then
-      LOAD_LIST="${1:-""}"
-      AI_PROFILE="${2:-""}"       
-    fi
-		clear
-		_C -s -d "source $HOME/.zshrc" "source $HOME/.bashrc"   
+    while (( $# > 0 )); do
+        case $1 in
+            -p|--profile) 
+                LOAD_LIST="${2:-""}"  
+                shift 2 
+                ;;
+            -l|--load) 
+                LOAD_LIST="${2:-""}" 
+                shift 2 
+                ;;
+            *) 
+                LOAD_LIST="${1:-""}" 
+                shift 1 
+                ;;
+        esac       
+    done
+    
+    clear
+    
+    _C -s -d "[[ -f $HOME/.zshrc ]] && source $HOME/.zshrc " "[[ -f $HOME/.bashrc ]] && source $HOME/.bashrc"
+    
     #cn 46 b "✓ Config reloaded!"
 }
 alias pp="refresh_shell"
