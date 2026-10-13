@@ -205,11 +205,11 @@ ssot_load(){
         "$SSOT/shared/00-env.sh"
         "$SSOT/core/ssh_toolkit.sh"
         "$SSOT/core/3worlds.sh"
-		"$SSOT/core/ssh-toolkit.sh"
+				"$SSOT/core/ssh-toolkit.sh"
         "$SSOT/shared/aliases.sh"
         "$SSOT/core/profiles.sh"
-       	#"$SSOT/core/theme.sh"
-		"$SSOT/plugins/joe_theme/plugin.sh"
+       	"$SSOT/core/lazy-load_engine.sh"
+				"$SSOT/plugins/joe_theme/plugin.sh"
     )
 
     # 1. shared/functions (priority core tools & loader)
