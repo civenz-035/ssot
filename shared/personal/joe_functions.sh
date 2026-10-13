@@ -261,7 +261,6 @@ bbcalc() {
     case "${1:-}" in    
        -h|--help)
                  echo "$usage" 
-                 shift
                  return 0
        ;;
        -c|--calcl)
@@ -274,6 +273,9 @@ bbcalc() {
                  # เรียกใช้ slv พร้อม flag -q และกำหนดทศนิยม + โหมดปัดเศษได้แบบเดียวกับ mth()
                  current_bet=$(slv -q "basebet/bal=(m-1)/(m^n-1)" "bal=$cur_bal" "m=$mul" "n=$l_st" "$scale" d)
                  echo "$current_bet"
+        *)
+                 echo "$usage" 
+                 return 0      
        ;;
     esac
     }   

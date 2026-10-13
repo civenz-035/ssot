@@ -743,3 +743,4 @@ gt() {
     return "$rc"
 }
 
+alias gall='gt sync all --add -m "daily update"'

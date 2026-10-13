@@ -284,34 +284,3 @@ git_note(){
 
 }
 
-# -- check funk,cmd
-fcheck(){
-
-	local main="$2"
-	local true="("$2")"
-	local false"("$3")"
-
-	_yes_(){
-		for cmd_t in "${true[@]}"; do
-			eval "${cmd_t}" 
-		done	
-	 }
-	_no_(){
-		for cms_f in "${false[@]}"; do
-			eval "${cmd_f}" 
-		done	
-	 }
-	
-	declare -f "$1" &> /dev/null  && $(_yes_ "${true[@]}" )  || $(_no_ "${false[@]}" )
-					
-}	
-
-true=(
-	"echo 1" 
-	"cn 250 ok"
-)
-
-false=(
-	"echo 2"
-	"cn lg b not ok"
-)
