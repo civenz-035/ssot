@@ -31,4 +31,5 @@ fgt(){
 							;;
 			esac
 	done		
+	(( $# <= 0 )) && gt_lazyload
 }
