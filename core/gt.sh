@@ -744,3 +744,4 @@ gt() {
 }
 
 alias gall='gt sync all --add -m "daily update"'
+alias guall='gt sync all --add -m "quick update of all projects"'

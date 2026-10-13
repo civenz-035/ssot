@@ -203,6 +203,7 @@ ssot_load(){
     local SHOW_LOAD="${1:-""}"
     local source_files=(
         "$SSOT/shared/00-env.sh"
+        "$SSOT/core/gt.sh"
         "$SSOT/core/ssh_toolkit.sh"
         "$SSOT/core/3worlds.sh"
 				"$SSOT/core/ssh-toolkit.sh"

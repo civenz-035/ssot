@@ -276,7 +276,7 @@ multi_git_manager() {
 
 # ALIASES
 alias gu='multi_git_manager'
-alias guall='gu all -sync "quick update of all projects"'
+alias guall='gt sync all --add -m "quick update of all projects"'
 git_note(){
 
     file_path="$hpc/Desktop/main_sync/git knowledge/Git basic.md"
@@ -284,3 +284,6 @@ git_note(){
 
 }
 
+mth_update(){
+    bash  $sim/update.sh
+}
