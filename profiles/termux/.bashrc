@@ -109,3 +109,4 @@ export TERM=xterm-256color
 
 # maths-helper (mth, slv, calc, solve)
 [ -f "$HOME/.maths-helper/maths.sh" ] && source "$HOME/.maths-helper/maths.sh"
+[[ -f "$HOME/simulator/lib/alias.sh" ]] && source "$HOME/simulator/lib/alias.sh
