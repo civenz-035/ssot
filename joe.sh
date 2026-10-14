@@ -47,85 +47,8 @@ if [[ -z "${SSOT:-}" ]]; then
     esac
 fi
 
-# Derived paths (use $SSOT, not hardcoded)
-case "$JOE_ENV" in
-    TERMUX)
-        export DASHBOARD_DIR="$HOME/dashboard"
-        export OBSIDIAN_VAULT="/storage/emulated/0/syncthing/hermes_vault"
-        export home="$HOME"
-        export nexus_vault="$HOME/nexus_vault"
-        export MAIN_SYNC_DIR="$HOME/main_sync"
-        export SSH_PORT=8022
-        ;;
-    MUMU)
-        export DASHBOARD_DIR="$HOME/dashboard"
-        export OBSIDIAN_VAULT="/storage/emulated/0/syncthing/hermes_vault"
-        export home="$HOME"
-        export nexus_vault="$HOME/nexus_vault"
-        export MAIN_SYNC_DIR="$HOME/main_sync"
-        export SSH_PORT=8020
-        ;;
-    WSL)
-	    export hpc="/mnt/c/Users/User"
-        export DASHBOARD_DIR="$HOME/dashboard"
-        export PYTHON_VENV="${PYTHON_VENV:-$HOME/.venv/bin/activate}"
-        export OBSIDIAN_VAULT="$hpc/DESKTOP/obsidian/alphadev_vaults"
-        export home="$HOME"
-        export nexus_vault="$HOME/nexus_vault"
-        export MAIN_SYNC_DIR="$hpc/DESKTOP/main_sync"
-        export SSH_PORT=2222
-
-        ;;
-    WSL2)
-	    export hpc="/mnt/c/Users/User"
-        export DASHBOARD_DIR="$HOME/dashboard"
-        export PYTHON_VENV="${PYTHON_VENV:-$HOME/.venv/bin/activate}"
-        export OBSIDIAN_VAULT="$hpc/DESKTOP/obsidian/alphadev_vaults"
-        export home="$HOME"
-        export nexus_vault="$HOME/nexus_vault"
-        export MAIN_SYNC_DIR="$hpc/DESKTOP/main_sync"
-        export SSH_PORT=2223
-
-        ;;
-    OPPO)
-        export DASHBOARD_DIR="$HOME/dashboard"
-        export OBSIDIAN_VAULT="/storage/emulated/0/syncthing/hermes_vault"
-        export home="$HOME"
-        export nexus_vault="$HOME/nexus_vault"
-        export MAIN_SYNC_DIR="$HOME/main_sync"
-        export SSH_PORT=8023
-        ;;
-    ACODEX)
-        export DASHBOARD_DIR="$HOME/dashboard"
-        export home="$HOME"
-        export nexus_vault="$HOME/nexus_vault"
-        export MAIN_SYNC_DIR="$HOME/main_sync"
-        export SSH_PORT=8021
-        ;;
-    GIT-BASH)
-        export hpc="$HOME"
-        export DASHBOARD_DIR="$HWSL/dashboard"
-        export OBSIDIAN_VAULT="$hpc/DESKTOP/obsidian/alphadev_vaults"
-        export nexus_vault="$hpc/DESKTOP/nexus_vault"
-        export MAIN_SYNC_DIR="$HOME/DESKTOP/main_sync"
-        export SSH_PORT=2222
-        
-        ;;
-esac
-
-# -- Global varialble defined after done env detection process
-        export SCRIPTS_PATH=$SSOT
-        export COLOR_PATH="$SSOT"
-        export msync="$MAIN_SYNC_DIR"
-        export htm="/data/data/com.termux/files/home"
-        export OP_DIR="${HOME}"
-        export SSH_MUMU_PORT=8020
-        export SSH_TERMUX_PORT=8022
-        export SSH_WSL_PORT=2222
-        export SSH_WSL2_PORT=2223
-        export SSH_WIN_PORT=22
-		export SSH_ACODEX_PORT=8021
-		export SSH_OPPO_PORT=8023
+# -- Derived paths & global vars are now in shared/00-env.sh (SSOT) --
+# Loaded via ssot_load() below. Nothing to set here.
 
 
 

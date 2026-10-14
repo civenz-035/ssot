@@ -73,6 +73,7 @@ case "$JOE_ENV" in
          export HWSL="$HOME"
          export HWSL2="unseen"
          export PYTHON_BIN="$HOME/.local/bin/python3"
+         export hpc="/mnt/c/Users/User"
          ;;
     WSL2)
          export HERMES_DIR="$HOME/.hermes"
@@ -82,16 +83,17 @@ case "$JOE_ENV" in
          export HWSL="unseen"
          export HWSL2="$HOME"
          export PYTHON_BIN="$HOME/.local/bin/python3.11"
+         export hpc="/mnt/c/Users/User"
          ;;
     GIT-BASH)
-         export HERMES_DIR="/mnt/c/Users/User/AppData/Local/hermes"
-         export PYTHON_VENV="$HWSL/.venv/bin/activate"
+         export HERMES_DIR="$HOME/AppData/Local/hermes"
+         export PYTHON_VENV="$HOME/.venv/bin/activate"
          export NODE_HOST="window"
          export WIN_PATH='/'
          export HWSL="//wsl.localhost/Ubuntu/home/usercivenz"
          export HWSL2="//wsl.localhost/Ubuntu-22.04/home/joez"
          export PYTHON_BIN="$HOME/AppData/Local/Programs/Python/Python39/python"
-        
+         export hpc="$HOME"
 
          ;;
     *)
@@ -101,8 +103,73 @@ case "$JOE_ENV" in
 esac
 
 # ============================================================
-# 2. GLOBAL VARIABLE
+# 1.5 DERIVED PATHS (per JOE_ENV) — migrated from joe.sh
 # ============================================================
+case "$JOE_ENV" in
+    TERMUX)
+        export DASHBOARD_DIR="$HOME/dashboard"
+        export OBSIDIAN_VAULT="/storage/emulated/0/syncthing/hermes_vault"
+        export home="$HOME"
+        export nexus_vault="$HOME/nexus_vault"
+        export MAIN_SYNC_DIR="$HOME/main_sync"
+        export SSH_PORT=8022
+        ;;
+    MUMU)
+        export DASHBOARD_DIR="$HOME/dashboard"
+        export OBSIDIAN_VAULT="/storage/emulated/0/syncthing/hermes_vault"
+        export home="$HOME"
+        export nexus_vault="$HOME/nexus_vault"
+        export MAIN_SYNC_DIR="$HOME/main_sync"
+        export SSH_PORT=8020
+        ;;
+    OPPO)
+        export DASHBOARD_DIR="$HOME/dashboard"
+        export OBSIDIAN_VAULT="/storage/emulated/0/syncthing/hermes_vault"
+        export home="$HOME"
+        export nexus_vault="$HOME/nexus_vault"
+        export MAIN_SYNC_DIR="$HOME/main_sync"
+        export SSH_PORT=8023
+        ;;
+    ACODEX)
+        export DASHBOARD_DIR="$HOME/dashboard"
+        export home="$HOME"
+        export nexus_vault="$HOME/nexus_vault"
+        export MAIN_SYNC_DIR="$HOME/main_sync"
+        export SSH_PORT=8021
+        ;;
+    WSL)
+        export DASHBOARD_DIR="$HOME/dashboard"
+        export OBSIDIAN_VAULT="$hpc/DESKTOP/obsidian/alphadev_vaults"
+        export home="$HOME"
+        export nexus_vault="$HOME/nexus_vault"
+        export MAIN_SYNC_DIR="$hpc/DESKTOP/main_sync"
+        export SSH_PORT=2222
+        ;;
+    WSL2)
+        export DASHBOARD_DIR="$HOME/dashboard"
+        export OBSIDIAN_VAULT="$hpc/DESKTOP/obsidian/alphadev_vaults"
+        export home="$HOME"
+        export nexus_vault="$HOME/nexus_vault"
+        export MAIN_SYNC_DIR="$hpc/DESKTOP/main_sync"
+        export SSH_PORT=2223
+        ;;
+    GIT-BASH)
+        export DASHBOARD_DIR="$HWSL2/dashboard"
+        export OBSIDIAN_VAULT="$hpc/DESKTOP/obsidian/alphadev_vaults"
+        export nexus_vault="$hpc/DESKTOP/nexus_vault"
+        export MAIN_SYNC_DIR="$hpc/DESKTOP/main_sync"
+        export home="$HOME"
+        export SSH_PORT=2222
+        ;;
+    *)
+        export DASHBOARD_DIR="$HOME/dashboard"
+        export home="$HOME"
+        export nexus_vault="$HOME/nexus_vault"
+        export MAIN_SYNC_DIR="$HOME/main_sync"
+        export SSH_PORT=22
+        ;;
+esac
+
 export h="${HOME#$HOME/\~}"  # -- display string ~ instead of long path of home dir
 export MATHS_HELPER_DIR="$HOME/.maths-helper"
 export DICE_SIM_DIR="$HOME/simulator"
@@ -125,6 +192,9 @@ export ais_fiber="880-563-6522"
 export ais_phone="0814764210"
 export space="\u2003\u2003\u2003\u2003"
 export bin="$HOME/.local/bin"
+export pc_bin="$hpc/.local/bin"
+export wsl_bin="$hwsl/.local/bin"
+export wsl2_bin="$hwsl2/.local/bin"
 
 if [[ -n "${ZSH_VERSION:-}" ]]; then
     export _SHELL="zsh"
@@ -134,6 +204,21 @@ else
     export _SHELL="${_SHELL:-${SHELL##*/}}"
 fi
 export _USER="${USER:-${USERNAME:-$(whoami 2>/dev/null)}}"
+
+# ── Global constants migrated from joe.sh ──
+export SCRIPTS_PATH="${SSOT:-$HOME/ssot}"
+export COLOR_PATH="${SSOT:-$HOME/ssot}"
+export htm="/data/data/com.termux/files/home"   # Termux home (cross-env ref)
+export OP_DIR="${HOME}"
+export msync="${MAIN_SYNC_DIR}"
+# SSH port registry (machine-independent constants)
+export SSH_MUMU_PORT=8020
+export SSH_TERMUX_PORT=8022
+export SSH_OPPO_PORT=8023
+export SSH_ACODEX_PORT=8021
+export SSH_WSL_PORT=2222
+export SSH_WSL2_PORT=2223
+export SSH_WIN_PORT=22
 export pftermux="${SSOT}/profiles/termux"
 export ptwsl="${SSOT}/profiles/wsl"
 export pfmumu="${SSOT}/profiles/mumu"
@@ -146,27 +231,8 @@ export ssboom="${WIN_PATH}c/Users/User/Documents/mumusharedfolder/Screenshots"
 export vdoboom="${WIN_PATH}c/Users/User/Documents/MuMuSharedFolder/VideoRecords"
 export bk_vdoboom="${WIN_PATH}h/boom/VideoRecords"
 export bk_ssboom="${WIN_PATH}h/boom/Screenshots"
-# ============================================================
-# Dynamic env switching
-# ============================================================
-ai_bin() {
-    if command -v openclaw >/dev/null 2>&1; then
-        export OPENCLAW_BIN="openclaw"
-    else
-        unset OPENCLAW_BIN
-    fi
-    if command -v hermes >/dev/null 2>&1; then
-        export HERMES_BIN="hermes"
-    else
-        unset HERMES_BIN
-    fi
-}
-ai_bin
-# ============================================================
-# 2. SERVICE PATHS & DIRECTORIES
-# ============================================================
 
-# 
+
 # Dice Simulator — standalone repo (github.com/civenz-035/dice-simulator)
 export DICE_SIM_DIR="${DICE_SIM_DIR:-$HOME/simulator}"
 

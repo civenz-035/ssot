@@ -47,7 +47,10 @@ bbcalc() {
     }   
 
 
-bal=$1 loss_allowed=$2 multi=$3 basebet=$4
+bal=$1 
+loss_allowed=$2 
+multi=$3 
+basebet=$4
 start_bal=$bal
 loss_streak=0
 lose_count=0
