@@ -2420,7 +2420,7 @@ xfm_find() {
 # xfm SYNC — rsync สองทิศทาง (any → any)
 # ─────────────────────────────────────────────────────────────────
 xfm_sync() {
-  local src_arg="${1:?Usage: xfm sync <src> <dst>  ex: xfm sync tx:~/projects wsl:~/projects}"
+  local src_arg="${1:?Usage: xfm sync <src> <dst>  ex: xfm sync tm:~/projects wsl:~/projects}"
   local dst_arg="${2:?Usage: xfm sync <src> <dst>}"
 
   local src_m dst_m src_p dst_p
