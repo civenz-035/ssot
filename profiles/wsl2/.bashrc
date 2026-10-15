@@ -86,3 +86,6 @@ export TERM=xterm-256color
 
 # maths-helper (mth, slv, calc, solve)
 [ -f "$HOME/.maths-helper/maths.sh" ] && source "$HOME/.maths-helper/maths.sh"
+
+# Added by simulator install script
+[[ -f '/home/joez/simulator/lib/alias.sh' ]] && source '/home/joez/simulator/lib/alias.sh'
