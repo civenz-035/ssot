@@ -7,6 +7,12 @@
 # ============================================================
 
 _() {
+
+    _C -q -f _config_def
+    _C -q -f block_render
+    _C -q -f bn_2
+    _config_def "$@"
+
     local base_c="${WIN_PATH}c/Users/User/Documents/mumusharedfolder"
     local base_z="${WIN_PATH}z/MuMuSharedFolder"
     local base_backup="${WIN_PATH}h/boom"
@@ -31,8 +37,8 @@ _() {
         bvdo)        printf "%s\n" "${base_backup}/VideoRecords" ;;
         zss)         printf "%s\n" "${base_z}/Screenshots" ;;
         zvdo)        printf "%s\n" "${base_z}/VideoRecords" ;;
-        -h|--help)   _C bn_2 "${list_[@]}" ;;
-        *)           _C bn_3 "${list_[@]}" ;;
+        -h|--help)    bn_2 "${list_[@]}" ;;
+        *)            block_render "${list_[@]}" ;;
     esac
 }
 

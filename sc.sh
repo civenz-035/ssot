@@ -26,6 +26,11 @@ for f in "${ssot_link[@]}"; do
 		lf="$(readlink "${f}")"
  		slf="${lf/#$HOME/\~}"
 		echo "$sf ---> $slf"
-	
 done	
+
+joe_love(){
+
+	echo "เด็ดดวง"
+
+}
 

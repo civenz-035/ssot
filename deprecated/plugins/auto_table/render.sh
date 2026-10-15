@@ -34,10 +34,12 @@ n_(){
 # ============================================================
 
 # bn_3: Dynamic Auto-Width Table (ความกว้างพอดีตามเนื้อหา)
-bn_2() {
+block_render() {
     # --- 0. Config & Defaults ---
 
-    _C -f _config_rc
+    _C -q -f _config_def
+
+    _config_def "$@"
 
     local title="${BN_TITLE:-Shortcuts folders}"
     local title_c="${BN_TITLE_COLOR:-208}"
@@ -115,66 +117,3 @@ bn_2() {
     bn_3_=yes
 }
 
-# bn_2: Fixed Width Table (ความกว้างมาตรฐาน 80 ตัวอักษร)
-bn_3() {
-    # --- 0. Config & Defaults ---
-
-    _C -f _config_def
-
-    local title="${BN_TITLE:-Shortcuts folders}"
-    local title_c="${BN_TITLE_COLOR:-208}"
-    local title_s="${BN_TITLE_STYLE:-b}"
-
-    local border_ch="${BN_BORDER_CHAR:-▬}"
-    local border_c="${BN_BORDER_COLOR:-92}"
-    local border_s="${BN_BORDER_STYLE:-b}"
-    local border_len="${BN_BORDER_LEN:-80}"
-
-    local label_c="${BN_LABEL_COLOR:-250}"
-    local label_s="${BN_LABEL_STYLE:-d}"
-    local val_c="${BN_VAL_COLOR:-lcr}"
-    local val_s="${BN_VAL_STYLE:-}"
-    local sep="${BN_SEP:- : }"
-
-    local item lbl val padded_lbl
-
-    # --- 2. สร้าง Border & Header ---
-    local term_w="$(tput cols)"
-    local border_raw=""
-    (( border_len > term_w )) && border_len="$term_w"
-    border_raw="$(draw_ "$border_ch" "$border_len")"
-    local border
-    border="$(c "$border_c" "$border_s" "$border_raw")"
-	 
-    local title_len=${#title}
-    local pad_left=$(( (border_len - title_len) / 2 ))
-    (( pad_left < 0 )) && pad_left=0
-
-    printf "%s\n" "$border"
-    if [[ -n "$title" ]]; then
-        printf "%*s%s\n" "$pad_left" "" "$(c "$title_c" "$title_s" "$title")"
-        printf "%s\n" "$border"
-    fi
-
-    # --- 3. คำนวณความกว้าง Label อัตโนมัติ ---
-    local max_label_len=0
-    for item in "$@"; do
-        lbl="${item%%|*}"
-        (( ${#lbl} > max_label_len )) && max_label_len=${#lbl}
-    done
-
-    # --- 4. Render แต่ละ Row ---
-    for item in "$@"; do
-        lbl="${item%%|*}"
-        val="${item#*|}"
-
-        padded_lbl="$(printf "%-*s" "$max_label_len" "$lbl")"
-
-        c "$label_c" "$label_s" "$padded_lbl"
-        printf "%s" "$sep"
-        cn "$val_c" "$val_s" "$val"
-    done
-
-    printf "%s\n" "$border"
-    bn_2_=yes
-}

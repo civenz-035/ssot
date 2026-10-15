@@ -453,8 +453,18 @@ _check_(){
     esac
 }
 
-_C(){				
-						_check_ "$@"
+_C(){
+    case "$1" in
+        -q|--quiet|--mute|--no-display|--not-show)
+                shift 
+                _check_ "$@" &>  /dev/null
+                
+                ;;
+        *)
+                _check_ "$@" 
+                ;;
+    esac                           
+                    
 }
 
 get_real_width() {
