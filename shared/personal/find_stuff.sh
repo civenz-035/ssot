@@ -31,7 +31,7 @@ fvar() {
                 ignore_case=1
                 shift
                 ;;
-            --git)
+            -g|--git)
                 exclude_git=0
                 shift
                 ;;
