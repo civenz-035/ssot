@@ -69,7 +69,7 @@ alias bkboom='cd $bk_boom'
 alias ktmux="tmux kill-server"
 
 ll() {
-		fm ls "$@"
+		fm lsa "$@"
 	}
 
 
