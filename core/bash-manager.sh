@@ -1750,6 +1750,10 @@ xfm_WSL_HOST="${NODE_WSL_HOST:-${NODE_WSL_IP:-${WSL_IP}}}"
 xfm_WSL_USER="${NODE_WSL_USER:-${WSL_USER:-usercivenz}}"
 xfm_WSL_PORT="${NODE_WSL_PORT:-22}"
 
+xfm_WSL2_HOST="${NODE_WSL2_HOST:-${NODE_WSL2_IP:-${WSL2_IP:-wsl2}}}"
+xfm_WSL2_USER="${NODE_WSL2_USER:-${WSL2_USER:-joez}}"
+xfm_WSL2_PORT="${NODE_WSL2_PORT:-2223}"
+
 xfm_TM_HOST="${NODE_TERMUX_HOST:-${NODE_TERMUX_IP:-${TERMUX_IP}}}"
 xfm_TM_USER="${NODE_TERMUX_USER:-${TERMUX_USER:-u0_a331}}"
 xfm_TM_PORT="${NODE_TERMUX_PORT:-8022}"
@@ -1773,6 +1777,7 @@ _xfm_host() {
   case "$(_xfm_lower "$1")" in
     win|windows) echo "$xfm_WIN_HOST" ;;
     wsl)         echo "$xfm_WSL_HOST" ;;
+    wsl2)        echo "$xfm_WSL2_HOST" ;;
     tm|termux)   echo "$xfm_TM_HOST"  ;;
     mm|mumu)     echo "$xfm_MM_HOST"  ;;
     deb|debian)  echo "$xfm_DEB_HOST" ;;
@@ -1786,6 +1791,7 @@ _xfm_user() {
   case "$(_xfm_lower "$1")" in
     win|windows) echo "$xfm_WIN_USER" ;;
     wsl)         echo "$xfm_WSL_USER" ;;
+    wsl2)        echo "$xfm_WSL2_USER" ;;
     tm|termux)   echo "$xfm_TM_USER"  ;;
     mm|mumu)     echo "$xfm_MM_USER"  ;;
     deb|debian)  echo "$xfm_DEB_USER" ;;
@@ -1799,6 +1805,7 @@ _xfm_port() {
   case "$(_xfm_lower "$1")" in
     win|windows) echo "$xfm_WIN_PORT" ;;
     wsl)         echo "$xfm_WSL_PORT" ;;
+    wsl2)        echo "$xfm_WSL2_PORT" ;;
     tm|termux)   echo "$xfm_TM_PORT"  ;;
     mm|mumu)     echo "$xfm_MM_PORT"  ;;
     deb|debian)  echo "$xfm_DEB_PORT" ;;
@@ -1812,6 +1819,7 @@ _xfm_label() {
   case "$(_xfm_lower "$1")" in
     win|windows) cn 75 b "🖥️  win"    ;;
     wsl)         cn 46 b "🐧  wsl"   ;;
+    wsl2)        cn 46 b "🐧  wsl2"  ;;
     tm|termux)   cn 226 b "📱  tm"    ;;
     mm|mumu)     cn 208 b "🎮  mm"    ;;
     deb|debian)  cn 87 b "🔷  deb"   ;;
@@ -1823,7 +1831,7 @@ _xfm_label() {
 # Validate machine name
 _xfm_valid() {
   case "$(_xfm_lower "$1")" in
-    win|windows|wsl|tm|termux|mm|mumu|deb|debian|local|.) return 0 ;;
+    win|windows|wsl|wsl2|tm|termux|mm|mumu|deb|debian|local|.) return 0 ;;
     *) return 1 ;;
   esac
 }
@@ -1970,7 +1978,7 @@ xfm_help() {
   echo ""
   cn 87 "  ╔══════════════════════════════════════════════════════════════════╗"
   printf '%s\n' "$(c 87 b '  ║')  $(c 255 b '🌐  xfm — Cross-Machine File Manager  v2.0')                    $(c 87 b '║')"
-  printf '%s\n' "$(c 87 b '  ║')  $(c 244 d 'Multi-World: win │ wsl │ tm (Termux) │ mm (MuMu) │ deb')     $(c 87 b '║')"
+  printf '%s\n' "$(c 87 b '  ║')  $(c 244 d 'Multi-World: win │ wsl │ wsl2 │ tm (Termux) │ mm (MuMu) │ deb')     $(c 87 b '║')"
   cn 87 "  ╚══════════════════════════════════════════════════════════════════╝"
 
   echo ""
@@ -1980,6 +1988,7 @@ xfm_help() {
   hline 66
   ctab "75:10 244:24 2:10 0:0"  "win"       "$xfm_WIN_USER@$xfm_WIN_HOST" "$xfm_WIN_PORT" "🖥️  Windows"
   ctab "46:10 244:24 2:10 0:0"  "wsl"       "$xfm_WSL_USER@$xfm_WSL_HOST" "$xfm_WSL_PORT" "🐧  WSL"
+  ctab "46:10 244:24 2:10 0:0"  "wsl2"      "$xfm_WSL2_USER@$xfm_WSL2_HOST" "$xfm_WSL2_PORT" "🐧  WSL2"
   ctab "226:10 244:24 2:10 0:0" "tm"        "$xfm_TM_USER@$xfm_TM_HOST"   "$xfm_TM_PORT"  "📱  Termux (Android)"
   ctab "208:10 244:24 2:10 0:0" "mm"        "$xfm_MM_USER@$xfm_MM_HOST"   "$xfm_MM_PORT"  "🎮  MuMu (Android VM)"
   ctab "87:10 244:24 2:10 0:0"  "deb"       "$xfm_DEB_USER@$xfm_DEB_HOST" "$xfm_DEB_PORT" "🔷  Debian (proot)"
@@ -2035,7 +2044,7 @@ xfm_status() {
   ctab "1:6 1:22 1:6 1:8 1:10 1:0" "NAME" "CONNECTION" "PORT" "LATENCY" "DISK USE" "STATUS"
   _sep
 
-  local machines=("win" "wsl" "tm" "mm" "deb")
+  local machines=("win" "wsl" "wsl2" "tm" "mm" "deb")
   for m in "${machines[@]}"; do
     local host user port label conn_str
     host=$(_xfm_host "$m")
@@ -2072,12 +2081,12 @@ xfm_status() {
 xfm_ls() {
   local machine="${1:?Usage: xfm ls <machine> [path]}"
   local path="${2:-~}"
-  _xfm_valid "$machine" || { _err "ไม่รู้จัก machine: $machine  (win|wsl|tm|mm|deb|local)"; return 1; }
+  _xfm_valid "$machine" || { _err "ไม่รู้จัก machine: $machine  (win|wsl|wsl2|tm|mm|deb|local)"; return 1; }
 
   _learn_box "xfm ls — แสดงไฟล์บน remote" \
     "ssh -p <port> user@host 'ls -lAh --color=never \"$path\"'" \
     "ssh            |เชื่อมต่อ remote แล้วรัน command" \
-    "-p <port>      |port ที่ตั้งไว้ตาม machine (tm=8022, mm=8020, win/wsl=22)" \
+    "-p <port>      |port ที่ตั้งไว้ตาม machine (tm=8022, mm=8020, wsl2=2223, win/wsl=22)" \
     "ls -lAh        |l=long format A=all incl. dotfiles h=human-readable size" \
     "--color=never  |ปิดสี ls เพราะ xfm จะจัด format เอง"
 
@@ -2325,7 +2334,7 @@ xfm_df() {
     "(all)          |xfm loop ทุก machine และรัน df พร้อมกัน (background &)" \
     "(parallel)     |ส่ง SSH request ทุกเครื่องพร้อมกัน แล้วรอ output ทีเดียว"
 
-  local machines=("win" "wsl" "tm" "mm" "deb")
+  local machines=("win" "wsl" "wsl2" "tm" "mm" "deb")
   [[ "$target" != "all" ]] && machines=("$target")
 
   for m in "${machines[@]}"; do
