@@ -247,7 +247,7 @@ link2bin(){
  }
 
 
-bbcalc() {
+basebet() {
 
     # --- source maths functions ---
         
