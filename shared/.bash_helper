@@ -291,17 +291,24 @@ sws(){
         local cur="${_SHELL:-${SHELL##*/}}"
         c 198 b "SHELL : "
         cn ora b "$cur"
-        local target confirm
+        local target confirm _sws_prompt
         if [[ "$cur" == "bash" ]]; then
-            read -p "$(_ep "SWITCH TO ZSH  (y/n): ")" confirm
+            _sws_prompt="SWITCH TO ZSH  (y/n): "
             target="zsh"
         elif [[ "$cur" == "zsh" ]]; then
-            read "confirm?$(_ep "SWITCH TO BASH (y/n): ")" confirm
+            _sws_prompt="SWITCH TO BASH (y/n): "
             target="bash"
         else
             cn red b "Unknown shell: $cur"
             return 1
         fi
+        # NOTE (portable): `read -p` is bash-only, and
+        # `read "var?prompt" var` (with trailing var) swallows the
+        # answer in zsh (same-name vars: first word goes to var 1,
+        # the empty remainder overwrites var 2). printf + plain
+        # `read -r` works identically in bash and zsh.
+        printf '%s' "$(_ep "$_sws_prompt")" >&2
+        read -r confirm
         [[ "$confirm" =~ ^[Yy]$ ]] || return 0
         local abs
         abs="$(_sws_find_shell "$target")" || return 1

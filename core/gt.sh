@@ -1,6 +1,8 @@
 # ============================================================
 # Git Toolkit (gt)
-# Single-file implementation | Bash 4+
+# Single-file implementation | Bash 4+ / Zsh 5+
+# Portable: no bashisms that break zsh (unquoted assoc
+# subscripts, command -v fn check, 1-element array read).
 # ============================================================
 
 # ------------------------------------------------------------
@@ -79,7 +81,11 @@ gt_register_project() {
         GT_PROJECT_ORDER+=("$name")
     fi
 
-    GT_PROJECTS["$name"]="$path"
+    # NOTE (zsh-portable): assoc subscripts must be UNQUOTED.
+    # GT_PROJECTS["$name"]=... creates a literal '"name"' key
+    # in zsh, so all later ${GT_PROJECTS[$name]} reads miss.
+    # Unquoted [$name] works in both bash and zsh.
+    GT_PROJECTS[$name]="$path"
 }
 
 # ------------------------------------------------------------
@@ -87,7 +93,10 @@ gt_register_project() {
 # ------------------------------------------------------------
 
 gt_msg() {
-    if declare -F cn >/dev/null 2>&1; then
+    # NOTE (zsh-portable): `declare -F fn` in zsh means "declare
+    # float" and always succeeds. `command -v` detects functions
+    # in both bash and zsh.
+    if command -v cn >/dev/null 2>&1; then
         cn lg b "$*"
     else
         printf '\n== %s ==\n' "$*"
@@ -181,7 +190,10 @@ gt_select_projects() {
         fi
 
         # Avoid duplicate projects
-        local found=0 existing
+        # NOTE (zsh-portable): bare `local existing` re-executed in
+        # the same scope prints the value in zsh (typeset query
+        # semantics). `existing=""` assigns silently in both shells.
+        local found=0 existing=""
         for existing in "${GT_SELECTED[@]}"; do
             [[ "$existing" == "$name" ]] && found=1 && break
         done
@@ -345,7 +357,9 @@ gt_sync_repo() {
 gt_doctor_repo() {
     local name="$1"
     local dir="${GT_PROJECTS[$name]}"
-    local status="OK"
+    # NOTE (zsh-portable): `status` is a read-only special var in
+    # zsh (last exit code), so the local is named `dstatus`.
+    local dstatus="OK"
     local note=""
     local branch="" remote="origin" url=""
     local ahead=0 behind=0
@@ -373,7 +387,7 @@ gt_doctor_repo() {
         gt_ok "branch: $branch"
     else
         gt_fail "detached HEAD"
-        status="FAIL"
+        dstatus="FAIL"
         note="detached HEAD"
         branch=""
     fi
@@ -395,7 +409,7 @@ gt_doctor_repo() {
             gt_ok "fetched --prune $remote"
         else
             gt_fail "fetch --prune $remote failed"
-            status="FAIL"
+            dstatus="FAIL"
         fi
     fi
 
@@ -417,11 +431,11 @@ gt_doctor_repo() {
                 gt_ok "upstream set to $remote/$branch"
             else
                 gt_fail "could not set upstream to $remote/$branch"
-                status="FAIL"
+                dstatus="FAIL"
             fi
         else
             gt_warn "no upstream configured"
-            [[ "$status" != "FAIL" ]] && status="WARN"
+            [[ "$dstatus" != "FAIL" ]] && dstatus="WARN"
         fi
     fi
 
@@ -429,7 +443,7 @@ gt_doctor_repo() {
     if (( GT_DOCTOR_NETWORK )); then
         if [[ -z "$url" ]]; then
             gt_warn "no URL for remote '$remote'; skipping reachability check"
-            [[ "$status" == "OK" ]] && status="WARN"
+            [[ "$dstatus" == "OK" ]] && dstatus="WARN"
         else
             local -a _probe=(git -C "$dir" ls-remote \
                 --exit-code "$remote" HEAD)
@@ -440,7 +454,7 @@ gt_doctor_repo() {
                 gt_ok "remote reachable: $remote"
             else
                 gt_fail "remote unreachable: $remote ($url)"
-                status="FAIL"
+                dstatus="FAIL"
             fi
         fi
     else
@@ -455,7 +469,7 @@ gt_doctor_repo() {
                 gt_ok "up-to-date with upstream"
             else
                 gt_warn "ahead $ahead, behind $behind"
-                [[ "$status" == "OK" ]] && status="WARN"
+                [[ "$dstatus" == "OK" ]] && dstatus="WARN"
             fi
         fi
     fi
@@ -470,7 +484,7 @@ gt_doctor_repo() {
         gt_ok "working tree clean"
     else
         gt_warn "dirty: $staged staged, $unstaged unstaged, $untracked untracked"
-        [[ "$status" == "OK" ]] && status="WARN"
+        [[ "$dstatus" == "OK" ]] && dstatus="WARN"
     fi
 
     # 9. Stash ----------------------------------------------------------
@@ -478,7 +492,7 @@ gt_doctor_repo() {
     if (( stashes > 0 )); then
         gt_warn "$stashes stash entr$( (( stashes == 1 )) \
             && echo 'y' || echo 'ies') kept"
-        [[ "$status" == "OK" ]] && status="WARN"
+        [[ "$dstatus" == "OK" ]] && dstatus="WARN"
     else
         gt_ok "no stashes"
     fi
@@ -490,7 +504,7 @@ gt_doctor_repo() {
             -d "$_gitdir/rebase-merge" || -d "$_gitdir/rebase-apply" || \
             -e "$_gitdir/CHERRY_PICK_HEAD" ]]; then
         gt_fail "merge/rebase/cherry-pick in progress; resolve before sync"
-        status="FAIL"
+        dstatus="FAIL"
     else
         gt_ok "no merge/rebase in progress"
     fi
@@ -499,7 +513,7 @@ gt_doctor_repo() {
     if [[ -z "$(git -C "$dir" config user.name 2>/dev/null)" || \
           -z "$(git -C "$dir" config user.email 2>/dev/null)" ]]; then
         gt_warn "user.name/user.email not set (commit will fail)"
-        [[ "$status" == "OK" ]] && status="WARN"
+        [[ "$dstatus" == "OK" ]] && dstatus="WARN"
     else
         gt_ok "identity: $(git -C "$dir" config user.name) <$(git -C "$dir" \
             config user.email)>"
@@ -508,24 +522,24 @@ gt_doctor_repo() {
     # 12. Remote URL -----------------------------------------------------------
     if [[ -z "$url" ]]; then
         gt_warn "no remote URL configured"
-        [[ "$status" == "OK" ]] && status="WARN"
+        [[ "$dstatus" == "OK" ]] && dstatus="WARN"
     else
         gt_ok "remote: $url"
     fi
 
     # Summary note ---------------------------------------------------------------
     if [[ -z "$note" ]]; then
-        if [[ "$status" == "OK" ]]; then
+        if [[ "$dstatus" == "OK" ]]; then
             note="clean"
             if (( ahead == 0 && behind == 0 )) && gt_has_upstream "$dir"; then
                 note="clean, up-to-date"
             fi
         else
-            note="see $status lines above"
+            note="see $dstatus lines above"
         fi
     fi
-    GT_DOCTOR_SUMMARY+=("$name|$status|$note")
-    [[ "$status" == "OK" ]]
+    GT_DOCTOR_SUMMARY+=("$name|$dstatus|$note")
+    [[ "$dstatus" == "OK" ]]
 }
 
 # ------------------------------------------------------------
@@ -615,7 +629,11 @@ gt() {
             gt_fail "Usage: gt exec PROJECT git-arguments..."
             return 2
         fi
-        local project="${projects[0]}"
+        # NOTE (zsh-portable): zsh arrays are 1-based, bash 0-based,
+        # so ${projects[0]} is empty in zsh. exec requires exactly
+        # one project (checked above), so "${projects[@]}" safely
+        # expands to that single element in both shells.
+        local project="${projects[@]}"
         [[ "$project" == "all" ]] && {
             gt_fail "exec requires exactly one project"
             return 2
