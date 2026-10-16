@@ -117,3 +117,6 @@ alias calc='python3 "$HOME/.maths-helper/maths.py" mth'
 alias math='python3 "$HOME/.maths-helper/maths.py" mth'
 alias slv='"$HOME/.maths-helper/maths.sh" slv'
 alias solve='"$HOME/.maths-helper/maths.sh" slv'
+
+# Added by simulator install script
+[[ -f '/public/simulator/lib/alias.sh' ]] && source '/public/simulator/lib/alias.sh'
