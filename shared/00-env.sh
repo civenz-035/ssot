@@ -170,6 +170,9 @@ case "$JOE_ENV" in
         ;;
 esac
 
+export WIN="win"
+export WSL="wsl"
+export WSL2="wsl2"
 export h="${HOME#$HOME/\~}"  # -- display string ~ instead of long path of home dir
 export MATHS_HELPER_DIR="$HOME/.maths-helper"
 export DICE_SIM_DIR="$HOME/simulator"

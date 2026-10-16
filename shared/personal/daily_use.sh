@@ -287,3 +287,57 @@ git_note(){
 mth_update(){
     bash  $sim/update.sh
 }
+
+repo_manager() {
+    local hpc="${hpc:-}"
+    local hwsl="${HWSL:-${hwsl:-}}"
+    local hwsl2="${HWSL2:-${hwsl2:-}}"   
+    local repo_names=("ssot" ".maths-helper" "simulator")
+    local HOME_PATH="$HOME"
+    local repo_dir=""
+
+    # ตรวจสอบว่ามีการส่ง arguments มาหรือไม่ ถ้าไม่มีให้ทำงานกับค่า default
+    if (( $# == 0 )); then
+        echo "Usage: repo_manager [-win] [-wsl] [-wsl2]"
+        return 1
+    fi
+
+    # วนลูปตรวจจับแต่ละ flag ที่ส่งเข้ามา
+    while (( $# > 0 )); do
+        case "$1" in
+            -win|win)
+                HOME_PATH="$hpc"
+                ;;
+            -wsl|wsl)
+                HOME_PATH="$hwsl"
+                ;;
+            -wsl2|wsl2)
+                HOME_PATH="$hwsl2"
+                ;;
+            *)
+                HOME_PATH="$HOME"
+                ;;
+        esac
+
+        echo "==============================="
+        echo " Checking Device: $1 (Path: $HOME_PATH)"
+        echo "==============================="
+
+        # วนลูปเช็ค Path ของแต่ละ Repository สำหรับ Device นั้นๆ
+        for repo_name in "${repo_names[@]}"; do
+            if [[ -d "$HOME_PATH/$repo_name" ]]; then
+                repo_dir="$HOME_PATH/$repo_name"
+                echo "repository: $(cn lg b "$repo_name: $repo_dir")"
+                cn 235 b "-------------------------------"
+                echo ""
+            else
+                cn r b "repo: $repo_name doesn't exist"
+                cn 235 b "-------------------------------"
+                echo ""
+            fi
+        done
+
+        # ขยับ argument ตัวถัดไปทางซ้าย (ตัดตัวที่เช็คไปแล้วออก)
+        shift
+    done
+}
