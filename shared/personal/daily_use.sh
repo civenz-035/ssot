@@ -379,11 +379,9 @@ repo_() {
 }
 
 mapfile_(){
-    mapfile -t my_projects < <(repo_ -win)
 
-# นำไปใช้กับคำสั่งอื่นต่อ เช่น สั่ง git status ทุกโปรเจกต์ที่เจอ
-for proj in "${my_projects[@]}"; do
-    echo "$proj"
-    # เช่น cd "$proj" && git status
-done
+    mapfile -t my_projects < <(repo_ "$1")
+    for proj in "${my_projects[@]}"; do
+        cp -r "$proj" "$2" && echo "copied: $(cn lg b "$proj to $2")"
+    done
 }
