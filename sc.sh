@@ -5,10 +5,12 @@
 mf=""
 
 for m in "mth" "slv" "solve" "calc"; do
-	mf+="$bin/$m\n"
+	mf+=("$bin/$m")
 done	
-m_="$(echo -e $mf)"
 
+printd '%s\n' "${mf[@]}"
+
+#mapfile -t proj <<< "$(echo $m_)"
 ssot_link=(
     "$HOME/.bashrc"
     "$HOME/.zshrc"
