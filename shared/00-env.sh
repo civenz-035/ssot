@@ -254,7 +254,8 @@ export PYTHONIOENCODING="utf-8"
 # 3.5 MATH HELPER DEFAULTS (used by m() in 00.1-function-tools.sh)
 # ============================================================
 # Excel-style: default 2 decimals, round-half-up
-export MATH_DEFAULT_SCALE="${MATH_DEFAULT_SCALE:-0}"
+# (was :-0 which truncated everything to integers; matches maths.sh fallback)
+export MATH_DEFAULT_SCALE="${MATH_DEFAULT_SCALE:-2}"
 export MATH_DEFAULT_MODE="${MATH_DEFAULT_MODE:-round}"   # round | up | down
 
 # ============================================================

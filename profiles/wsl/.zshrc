@@ -147,3 +147,9 @@ micro() {
 
 # To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
 [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
+
+# Added by simulator install script
+[[ -f '/home/usercivenz/simulator/lib/alias.sh' ]] && source '/home/usercivenz/simulator/lib/alias.sh'
+
+# maths-helper (mth, slv, calc, solve)
+[ -f "$HOME/.maths-helper/maths.sh" ] && source "$HOME/.maths-helper/maths.sh"
