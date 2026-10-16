@@ -288,50 +288,6 @@ mth_update(){
     bash  $sim/update.sh
 }
 
-repo_manager() {
-    local hpc="${hpc:-}"
-    local hwsl="${HWSL:-${hwsl:-}}"
-    local hwsl2="${HWSL2:-${hwsl2:-}}"   
-    local repo_names=("ssot" ".maths-helper" "simulator")
-    local HOME_PATH="$HOME"
-    
-    # สร้าง Array เปล่าสำหรับเก็บ Path ที่เจอจริง
-    local collected_paths=()
-
-    if (( $# == 0 )); then
-        echo "Usage: repo_manager [-win] [-wsl] [-wsl2]" >&2
-        return 1
-    fi
-
-    while (( $# > 0 )); do
-        case "$1" in
-            -win|win)   HOME_PATH="$hpc" ;;
-            -wsl|wsl)   HOME_PATH="$hwsl" ;;
-            -wsl2|wsl2) HOME_PATH="$hwsl2" ;;
-            *)          HOME_PATH="$HOME" ;;
-        esac
-
-        for repo_name in "${repo_names[@]}"; do
-            local target_path="$HOME_PATH/$repo_name"
-            if [[ -d "$target_path" ]]; then
-                # เพิ่ม Path ลงใน Array
-                collected_paths+=("$target_path")
-                echo "repository: $(cn lg b "$repo_name: $target_path")"
-                cn 235 b "-------------------------------"
-                echo ""
-            else
-                cn r b "repo: $repo_name doesn't exist"
-                cn 235 b "-------------------------------"
-                echo ""
-            fi
-        done
-        shift
-    done
-
-    # ส่ง Array ออกไปข้างนอกผ่านคำสั่ง echo (คั่นด้วยบรรทัดใหม่)
-    printf '%s\n' "${collected_paths[@]}"
-}
-
 repo_() {
     local hpc="${hpc:-}"
     local hwsl="${HWSL:-${hwsl:-}}"
@@ -378,10 +334,12 @@ repo_() {
     printf '%s\n' "${collected_paths[@]}"
 }
 
-mapfile_(){
+sync_repo(){
 
     mapfile -t my_projects < <(repo_ "$1")
     for proj in "${my_projects[@]}"; do
         cp -r "$proj" "$2" && echo "copied: $(cn lg b "$proj to $2")"
     done
 }
+
+
