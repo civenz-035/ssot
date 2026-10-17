@@ -1,2 +1,5 @@
-e2f -o /data/data/com.termux/files/home/ssot/e2f.sh
-e2f -o /data/data/com.termux/files/home/ssot/e2f.sh
+#!/usr/bin/env bash
+source $HOME/.bashrc
+
+JOE_BANNER="\` $(mc b "αℓways ωith γσυ")  ❤️"
+e2f $JOE_BANNER
