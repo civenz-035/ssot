@@ -33,7 +33,7 @@ _gr() {
 _lw() {
     psc 15 b "$@"
 }
-
+export joe-logo="\` αℓways ωith γσυ"
 # ======================================================
 # 2. THEME DEFAULTS & CONFIGURATION SYSTEM
 # ======================================================
@@ -42,7 +42,7 @@ _lw() {
 : "${THEME_DEF_BORDER_SEP:=|}"
 : "${THEME_DEF_BORDER_COLOR:=random}"
 : "${THEME_DEF_BORDER_STYLE:=b}"
-: "${THEME_DEF_STATUS:=(ﾉ◕ .7oEz ◕)ﾉ*:･ﾟ✧}"
+: "${THEME_DEF_STATUS:=❤️ ICE}"
 : "${THEME_DEF_ENV:=${JOE_ENV:-${MY_DEVICE:-WSL2}}}"
 : "${THEME_DEF_ENV_COLOR:=202}"
 : "${THEME_DEF_POINTER:=-→}"
@@ -237,7 +237,7 @@ _set_prompt() {
     local last_status
     if [ $exit_code -eq 0 ]; then
         if command -v mc >/dev/null 2>&1; then
-            last_status="$(mc b "$last_status_raw")"
+            last_status="$(psc 45 b --bg "233" "$last_status_raw")"
         else
             last_status="$(psc 82 b "$last_status_raw")"
         fi
