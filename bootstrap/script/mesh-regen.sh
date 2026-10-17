@@ -59,12 +59,21 @@ NODE_WIN_HOST="${NODE_WIN_HOST:-window}"
 NODE_WIN_USER="${NODE_WIN_USER:-User}"
 NODE_WIN_PORT="${NODE_WIN_PORT:-22}"
 
-# window (mirrored): route wsl/wsl2 via localhost
+# Detect if running inside WSL or if mirrored localhost routing requested
+CURRENT_IS_WSL=false
+if grep -qi microsoft /proc/version 2>/dev/null; then
+    CURRENT_IS_WSL=true
+fi
+
+# window / wsl (mirrored): route via localhost 127.0.0.1
 WSL_HOST_OUT="$NODE_WSL_HOST"
 WSL2_HOST_OUT="$NODE_WSL2_HOST"
-if [[ "$LOCALHOST_WSL" == "true" ]]; then
+WIN_HOST_OUT="$NODE_WIN_HOST"
+
+if [[ "$LOCALHOST_WSL" == "true" ]] || [[ "$CURRENT_IS_WSL" == "true" ]]; then
     WSL_HOST_OUT="127.0.0.1"
     WSL2_HOST_OUT="127.0.0.1"
+    WIN_HOST_OUT="127.0.0.1"
 fi
 
 SSH_DIR="$HOME/.ssh"
@@ -121,7 +130,7 @@ _BLOCK_TMP="$(mktemp)"
     entry "mumu"   "$NODE_MUMU_HOST"   "$NODE_MUMU_USER"   "$NODE_MUMU_PORT"
     entry "termux" "$NODE_TERMUX_HOST" "$NODE_TERMUX_USER" "$NODE_TERMUX_PORT"
     entry "acodex" "$NODE_ACODEX_HOST" "$NODE_ACODEX_USER" "$NODE_ACODEX_PORT"
-    entry "window" "$NODE_WIN_HOST"    "$NODE_WIN_USER"    "$NODE_WIN_PORT"
+    entry "window" "$WIN_HOST_OUT"    "$NODE_WIN_USER"    "$NODE_WIN_PORT"
     echo "# <<< JOE_SSOT_MESH_END <<<"
 } > "$_BLOCK_TMP"
 

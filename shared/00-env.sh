@@ -282,101 +282,11 @@ export OPENCLAW_NO_RESPAWN=1
 export CURRENT_OC_PROFILE="${CURRENT_OC_PROFILE:-None (Default)}"
 
 # ============================================================
-# 6. NODE REGISTRY (Tailscale MagicDNS — SSOT for all nodes)
+# 6. NODE REGISTRY & MESH NETWORK (Centralized in core/node-mesh.sh)
 # ============================================================
-# Primary identity = Tailscale hostname (MagicDNS).
-# IPs are no longer hardcoded — Tailscale resolves them.
-# To add a new node: add a NODE_<NAME>_* block below.
-#
-# Schema per node:
-#   HOST      — Tailscale MagicDNS hostname
-#   USER      — SSH login user
-#   PORT      — SSH port (SSH service port on the node)
-#   ST_PORT   — Syncthing GUI port
-#   ST_KEY    — Syncthing API key
-#   ST_URL    — Syncthing base URL (no trailing slash)
-# ============================================================
-# -- TAILSCALING: Tailscale environment detection
-if command -v tailscale >/dev/null 2>&1; then
-    export TAILSCALE_BIN="tailscale"
-    if [[ "$JOE_ENV" != "GIT-BASH" ]]; then
-        export TAILSCALE_STATUS="$(tailscale status 2>/dev/null || echo "tailscale not running")"
-        export TAILSCALE_IP="$(tailscale ip -4 2>/dev/null || echo "tailscale not running")"
-    else
-        export TAILSCALE_STATUS="available"
-        export TAILSCALE_IP="100.69.181.45"
-    fi
-else
-    export TAILSCALE_STATUS="tailscale not running"
-    export TAILSCALE_IP="tailscale not running"
+if [[ -f "${SSOT:-$HOME/ssot}/core/node-mesh.sh" ]]; then
+    source "${SSOT:-$HOME/ssot}/core/node-mesh.sh"
 fi
-export TAILSCALE_IP_TERMUX=100.110.26.16
-export TAILSCALE_IP_WINDOW=100.69.181.45
-export TAILSCALE_IP_WSL=100.80.195.120
-export TAILSCALE_IP_MUMU=100.100.176.94
-export TAILSCALE_IP_OPPO=100.82.29.18
-export TAILSCALE_IP_WSL2=100.93.45.16
-
-# ── Dynamic Node Registry Loader (drop-in profiles from $SSOT/bootstrap/nodes/*.node.env) ──
-if [[ -f "${SSOT:-$HOME/ssot}/bootstrap/nodes/loader.sh" ]]; then
-    source "${SSOT:-$HOME/ssot}/bootstrap/nodes/loader.sh"
-fi
-
-# ============================================================
-# COMPATIBILITY LAYER — Phase 1
-# All legacy variable names re-exported from Node Registry.
-# DO NOT remove these until all consumers migrate to NODE_* vars.
-# ============================================================
-
-# Termux compat
-export TERMUX_IP="${NODE_TERMUX_HOST:-$NODE_TERMUX_IP}"
-export TERMUX_USER="$NODE_TERMUX_USER"
-export TERMUX_PORT="$NODE_TERMUX_PORT"
-export TERMUX_TELSCAIL_IP="$NODE_TERMUX_HOST"
-export ST_KEY_TERMUX="$NODE_TERMUX_ST_KEY"
-export ST_PORT_TERMUX="$NODE_TERMUX_ST_PORT"
-export URL_TERMUX="${NODE_TERMUX_ST_URL}/"
-
-# WSL compat
-export WSL_IP="${NODE_WSL_HOST:-$NODE_WSL_IP}"
-export WSL_USER="$NODE_WSL_USER"
-export WSL_TELSCAIL_IP="$NODE_WSL_HOST"
-export ST_KEY_WSL="$NODE_WSL_ST_KEY"
-export ST_PORT_WSL="$NODE_WSL_ST_PORT"
-export URL_WSL="${NODE_WSL_ST_URL}/"
-
-# WSL2 compat
-export WSL2_IP="${NODE_WSL2_HOST:-$NODE_WSL2_IP}"
-export WSL2_USER="$NODE_WSL2_USER"
-export WSL2_TELSCAIL_IP="$NODE_WSL2_HOST"
-export ST_KEY_WSL2="$NODE_WSL2_ST_KEY"
-export ST_PORT_WSL2="$NODE_WSL2_ST_PORT"
-export URL_WSL2="${NODE_WSL2_ST_URL}/"
-
-# --- Windows compat
-# WIN_GIT_BASH: path ของ Git Bash บน Windows (ใช้โดย tw() ใน 3worlds.sh)
-# Windows OpenSSH default shell = PowerShell — tw() ต้องเรียกผ่าน PS call operator
-#export WIN_GIT_BASH="C:\PROGRA~1\Git\bin\bash.exe"
-export WINDOWS_IP="${NODE_WIN_HOST:-$NODE_WIN_IP}"
-export WINDOWS_USER="$NODE_WIN_USER"
-export ST_KEY_WIN="$NODE_WIN_ST_KEY"
-export ST_PORT_WIN="$NODE_WIN_ST_PORT"
-export URL_WIN="${NODE_WIN_ST_URL}/"
-export WIN_GIT_BASH="C:/Program Files/Git/bin/bash.exe"
-
-# MUMUPlayer compat (Android emulator peer)
-export MUMU_IP="${NODE_MUMU_HOST:-$NODE_MUMU_IP}"
-export MUMU_USER="$NODE_MUMU_USER"
-export MUMU_PORT="$NODE_MUMU_PORT"
-export MUMU_TELSCAIL_IP="$NODE_MUMU_HOST"
-export ST_KEY_MUMU="$NODE_MUMU_ST_KEY"
-export ST_PORT_MUMU="$NODE_MUMU_ST_PORT"
-export URL_MUMU="${NODE_MUMU_ST_URL}/"
-
-# ACODEX compat
-export ACODEX_IP="${NODE_ACODEX_HOST:-$NODE_ACODEX_IP}"
-export ACODEX_USER="${NODE_ACODEX_USER:-root}"
-export ACODEX_PORT="${NODE_ACODEX_PORT:-8021}"
 
 # ============================================================
 # EXPORTS COMPLETE — Ready for use in aliases and functions

@@ -141,6 +141,7 @@ _st_check() {
 # ── 8. Get node field via variable indirection ──
 _get_node_field() {
     local upper="$1" field="$2"
+    upper="${upper//-/_}"
     local varname="NODE_${upper}_${field}"
     printf '%s' "${!varname:-}"
 }
@@ -189,7 +190,7 @@ _print_node() {
     st_url="$(_get_node_field "$upper" "ST_URL")"
 
     # window.node.env uses NODE_WIN_* — special alias
-    if [[ "$name" == "window" && -z "$ip" ]]; then
+    if [[ ("$name" == "window" || "$name" == "git-bash" || "$name" == "GIT-BASH") && -z "$host" ]]; then
         upper="WIN"
         ip="$(_get_node_field WIN "IP")"
         host="$(_get_node_field WIN "HOST")"

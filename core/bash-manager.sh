@@ -39,6 +39,17 @@ if [[ -z "$TERMUX_IP" ]]; then
   unset _env_file
 fi
 
+# Source node mesh from SSOT (core/node-mesh.sh) if not already loaded
+if [[ -z "${NODE_WIN_HOST:-}" ]]; then
+  _mesh_file="$SCRIPTS_PATH/core/node-mesh.sh"
+  [[ -f "$_mesh_file" ]] && source "$_mesh_file"
+  unset _mesh_file
+fi
+
+# Detect rsync capability
+_SSOT_HAS_RSYNC=0
+command -v rsync >/dev/null 2>&1 && _SSOT_HAS_RSYNC=1
+
 # ─────────────────────────────────────────────────────────────────
 # DYNAMIC BLOCK HELPERS (Visual width & padding)
 # ─────────────────────────────────────────────────────────────────
@@ -1409,19 +1420,23 @@ fm_world() {
 }
 
 fm_ssh() {
-  local target="${1:?Usage: fm ssh <tm|tw|wsl>}"
+  local target="${1:?Usage: fm ssh <win|wsl|wsl2|tm|mm|oppo|acodex>}"
   shift
   _learn_box "fm ssh — เชื่อมต่อผ่าน Secure Shell" \
     "ssh -p <port> <user>@<ip>" \
     "ssh           |Secure Shell — เข้ารหัสข้อมูลทั้งหมดที่ส่งผ่าน network" \
-    "-p <port>     |ระบุ port (Termux ใช้ 8022, Default คือ 22)" \
-    "(shortcut)    |fm ssh tm = เข้ามือถือ, fm ssh tw = เข้า Windows"
+    "-p <port>     |ระบุ port ตาม Node Mesh" \
+    "(shortcut)    |fm ssh tm, fm ssh wsl, fm ssh wsl2, fm ssh oppo, fm ssh mm, fm ssh win"
 
   case "$target" in
-    tm)  ssh -p "${NODE_TERMUX_PORT:-8022}" "${NODE_TERMUX_USER:-}@${NODE_TERMUX_HOST:-termux}" "$@" ;;
-    tw)  ssh "${NODE_WIN_USER:-User}@${NODE_WIN_HOST:-window}" "$@" ;;
-    wsl) ssh -i ~/.ssh/id_ed25519_wsl -p "${NODE_WSL_PORT:-22}" "${NODE_WSL_USER:-usercivenz}@${NODE_WSL_HOST:-wsl}" "$@" ;;
-    *)   _err "ไม่รู้จักเป้าหมาย: $target (ใช้: tm, tw, wsl)" ;;
+    tm|termux)  ssh -p "${NODE_TERMUX_PORT:-${SSH_TERMUX_PORT:-8022}}" "${NODE_TERMUX_USER:-u0_a331}@${NODE_TERMUX_HOST:-termux}" "$@" ;;
+    tw|win|window) ssh -p "${NODE_WIN_PORT:-${SSH_WIN_PORT:-22}}" "${NODE_WIN_USER:-User}@${NODE_WIN_HOST:-window}" "$@" ;;
+    wsl)        ssh -p "${NODE_WSL_PORT:-${SSH_WSL_PORT:-2222}}" "${NODE_WSL_USER:-usercivenz}@${NODE_WSL_HOST:-wsl}" "$@" ;;
+    wsl2)       ssh -p "${NODE_WSL2_PORT:-${SSH_WSL2_PORT:-2223}}" "${NODE_WSL2_USER:-joez}@${NODE_WSL2_HOST:-wsl2}" "$@" ;;
+    mm|mumu)    ssh -p "${NODE_MUMU_PORT:-${SSH_MUMU_PORT:-8020}}" "${NODE_MUMU_USER:-u0_a62}@${NODE_MUMU_HOST:-mumu}" "$@" ;;
+    oppo)       ssh -p "${NODE_OPPO_PORT:-${SSH_OPPO_PORT:-8023}}" "${NODE_OPPO_USER:-u0_a88}@${NODE_OPPO_HOST:-oppo}" "$@" ;;
+    acodex)     ssh -p "${NODE_ACODEX_PORT:-${SSH_ACODEX_PORT:-8021}}" "${NODE_ACODEX_USER:-root}@${NODE_ACODEX_HOST:-termux}" "$@" ;;
+    *)          _err "ไม่รู้จักเป้าหมาย: $target (ใช้: win, wsl, wsl2, tm, mm, oppo, acodex)" ;;
   esac
 }
 
@@ -1432,10 +1447,10 @@ fm_push() {
 
   case "$JOE_ENV" in
     TERMUX|MUMU)
-      r_user="${NODE_WSL_USER:-usercivenz}"; r_ip="${NODE_WSL_HOST:-wsl}"; r_port="${NODE_WSL_PORT:-22}"; r_name="WSL"
+      r_user="${NODE_WSL_USER:-usercivenz}"; r_ip="${NODE_WSL_HOST:-wsl}"; r_port="${NODE_WSL_PORT:-${SSH_WSL_PORT:-2222}}"; r_name="WSL"
       ;;
     *)
-      r_user="${NODE_TERMUX_USER:-}"; r_ip="${NODE_TERMUX_HOST:-termux}"; r_port="${NODE_TERMUX_PORT:-8022}"; r_name="Termux"
+      r_user="${NODE_TERMUX_USER:-u0_a331}"; r_ip="${NODE_TERMUX_HOST:-termux}"; r_port="${NODE_TERMUX_PORT:-${SSH_TERMUX_PORT:-8022}}"; r_name="Termux"
       ;;
   esac
 
@@ -1459,10 +1474,10 @@ fm_pull() {
 
   case "$JOE_ENV" in
     TERMUX|MUMU)
-      r_user="${NODE_WSL_USER:-usercivenz}"; r_ip="${NODE_WSL_HOST:-wsl}"; r_port="${NODE_WSL_PORT:-22}"; r_name="WSL"
+      r_user="${NODE_WSL_USER:-usercivenz}"; r_ip="${NODE_WSL_HOST:-wsl}"; r_port="${NODE_WSL_PORT:-${SSH_WSL_PORT:-2222}}"; r_name="WSL"
       ;;
     *)
-      r_user="${NODE_TERMUX_USER:-}"; r_ip="${NODE_TERMUX_HOST:-termux}"; r_port="${NODE_TERMUX_PORT:-8022}"; r_name="Termux"
+      r_user="${NODE_TERMUX_USER:-u0_a331}"; r_ip="${NODE_TERMUX_HOST:-termux}"; r_port="${NODE_TERMUX_PORT:-${SSH_TERMUX_PORT:-8022}}"; r_name="Termux"
       ;;
   esac
 
@@ -1742,25 +1757,33 @@ _xfm_lower() {
 # MACHINE CONFIG — อ้างอิงจาก 00-env.sh (SSOT) เท่านั้น
 # ห้าม hardcode ค่าที่นี่ — แก้ที่ 00-env.sh แทน
 # ─────────────────────────────────────────────────────────────────
-xfm_WIN_HOST="${NODE_WIN_HOST:-${NODE_WIN_IP:-${WINDOWS_IP}}}"
+xfm_WIN_HOST="${NODE_WIN_HOST:-${NODE_WIN_IP:-${WINDOWS_IP:-window}}}"
 xfm_WIN_USER="${NODE_WIN_USER:-${WINDOWS_USER:-User}}"
-xfm_WIN_PORT="${NODE_WIN_PORT:-22}"
+xfm_WIN_PORT="${NODE_WIN_PORT:-${SSH_WIN_PORT:-22}}"
 
-xfm_WSL_HOST="${NODE_WSL_HOST:-${NODE_WSL_IP:-${WSL_IP}}}"
+xfm_WSL_HOST="${NODE_WSL_HOST:-${NODE_WSL_IP:-${WSL_IP:-wsl}}}"
 xfm_WSL_USER="${NODE_WSL_USER:-${WSL_USER:-usercivenz}}"
-xfm_WSL_PORT="${NODE_WSL_PORT:-22}"
+xfm_WSL_PORT="${NODE_WSL_PORT:-${SSH_WSL_PORT:-2222}}"
 
 xfm_WSL2_HOST="${NODE_WSL2_HOST:-${NODE_WSL2_IP:-${WSL2_IP:-wsl2}}}"
 xfm_WSL2_USER="${NODE_WSL2_USER:-${WSL2_USER:-joez}}"
-xfm_WSL2_PORT="${NODE_WSL2_PORT:-2223}"
+xfm_WSL2_PORT="${NODE_WSL2_PORT:-${SSH_WSL2_PORT:-2223}}"
 
-xfm_TM_HOST="${NODE_TERMUX_HOST:-${NODE_TERMUX_IP:-${TERMUX_IP}}}"
+xfm_TM_HOST="${NODE_TERMUX_HOST:-${NODE_TERMUX_IP:-${TERMUX_IP:-termux}}}"
 xfm_TM_USER="${NODE_TERMUX_USER:-${TERMUX_USER:-u0_a331}}"
-xfm_TM_PORT="${NODE_TERMUX_PORT:-8022}"
+xfm_TM_PORT="${NODE_TERMUX_PORT:-${SSH_TERMUX_PORT:-8022}}"
 
-xfm_MM_HOST="${NODE_MUMU_HOST:-${NODE_MUMU_IP:-mumu}}"
-xfm_MM_USER="${NODE_MUMU_USER:-u0_a62}"
-xfm_MM_PORT="${NODE_MUMU_PORT:-8020}"
+xfm_MM_HOST="${NODE_MUMU_HOST:-${NODE_MUMU_IP:-${MUMU_IP:-mumu}}}"
+xfm_MM_USER="${NODE_MUMU_USER:-${MUMU_USER:-u0_a62}}"
+xfm_MM_PORT="${NODE_MUMU_PORT:-${SSH_MUMU_PORT:-8020}}"
+
+xfm_OPPO_HOST="${NODE_OPPO_HOST:-${NODE_OPPO_IP:-${OPPO_IP:-oppo}}}"
+xfm_OPPO_USER="${NODE_OPPO_USER:-${OPPO_USER:-u0_a88}}"
+xfm_OPPO_PORT="${NODE_OPPO_PORT:-${SSH_OPPO_PORT:-8023}}"
+
+xfm_ACODEX_HOST="${NODE_ACODEX_HOST:-${NODE_ACODEX_IP:-${ACODEX_IP:-termux}}}"
+xfm_ACODEX_USER="${NODE_ACODEX_USER:-${ACODEX_USER:-root}}"
+xfm_ACODEX_PORT="${NODE_ACODEX_PORT:-${SSH_ACODEX_PORT:-8021}}"
 
 xfm_DEB_HOST="${NODE_DEBIAN_HOST:-${DEBIAN_IP:-debian}}"
 xfm_DEB_USER="${NODE_DEBIAN_USER:-${DEBIAN_USER:-root}}"
@@ -1775,13 +1798,15 @@ xfm_DEB_PORT="${NODE_DEBIAN_PORT:-${DEBIAN_PORT:-22}}"
 # รับ nickname → คืน Hostname หรือ IP
 _xfm_host() {
   case "$(_xfm_lower "$1")" in
-    win|windows) echo "$xfm_WIN_HOST" ;;
-    wsl)         echo "$xfm_WSL_HOST" ;;
-    wsl2)        echo "$xfm_WSL2_HOST" ;;
-    tm|termux)   echo "$xfm_TM_HOST"  ;;
-    mm|mumu)     echo "$xfm_MM_HOST"  ;;
-    deb|debian)  echo "$xfm_DEB_HOST" ;;
-    local|.)     echo "localhost"     ;;
+    win|windows|window|git-bash|gb) echo "$xfm_WIN_HOST" ;;
+    wsl)                            echo "$xfm_WSL_HOST" ;;
+    wsl2)                           echo "$xfm_WSL2_HOST" ;;
+    tm|termux)                      echo "$xfm_TM_HOST"  ;;
+    mm|mumu)                        echo "$xfm_MM_HOST"  ;;
+    oppo)                           echo "$xfm_OPPO_HOST" ;;
+    acodex)                         echo "$xfm_ACODEX_HOST" ;;
+    deb|debian)                     echo "$xfm_DEB_HOST" ;;
+    local|.)                        echo "localhost"     ;;
     *) return 1 ;;
   esac
 }
@@ -1789,13 +1814,15 @@ _xfm_host() {
 # รับ nickname → คืน username
 _xfm_user() {
   case "$(_xfm_lower "$1")" in
-    win|windows) echo "$xfm_WIN_USER" ;;
-    wsl)         echo "$xfm_WSL_USER" ;;
-    wsl2)        echo "$xfm_WSL2_USER" ;;
-    tm|termux)   echo "$xfm_TM_USER"  ;;
-    mm|mumu)     echo "$xfm_MM_USER"  ;;
-    deb|debian)  echo "$xfm_DEB_USER" ;;
-    local|.)     echo "${USER:-$USERNAME}" ;;
+    win|windows|window|git-bash|gb) echo "$xfm_WIN_USER" ;;
+    wsl)                            echo "$xfm_WSL_USER" ;;
+    wsl2)                           echo "$xfm_WSL2_USER" ;;
+    tm|termux)                      echo "$xfm_TM_USER"  ;;
+    mm|mumu)                        echo "$xfm_MM_USER"  ;;
+    oppo)                           echo "$xfm_OPPO_USER" ;;
+    acodex)                         echo "$xfm_ACODEX_USER" ;;
+    deb|debian)                     echo "$xfm_DEB_USER" ;;
+    local|.)                        echo "${USER:-$USERNAME}" ;;
     *) return 1 ;;
   esac
 }
@@ -1803,13 +1830,15 @@ _xfm_user() {
 # รับ nickname → คืน SSH port
 _xfm_port() {
   case "$(_xfm_lower "$1")" in
-    win|windows) echo "$xfm_WIN_PORT" ;;
-    wsl)         echo "$xfm_WSL_PORT" ;;
-    wsl2)        echo "$xfm_WSL2_PORT" ;;
-    tm|termux)   echo "$xfm_TM_PORT"  ;;
-    mm|mumu)     echo "$xfm_MM_PORT"  ;;
-    deb|debian)  echo "$xfm_DEB_PORT" ;;
-    local|.)     echo ""              ;;
+    win|windows|window|git-bash|gb) echo "$xfm_WIN_PORT" ;;
+    wsl)                            echo "$xfm_WSL_PORT" ;;
+    wsl2)                           echo "$xfm_WSL2_PORT" ;;
+    tm|termux)                      echo "$xfm_TM_PORT"  ;;
+    mm|mumu)                        echo "$xfm_MM_PORT"  ;;
+    oppo)                           echo "$xfm_OPPO_PORT" ;;
+    acodex)                         echo "$xfm_ACODEX_PORT" ;;
+    deb|debian)                     echo "$xfm_DEB_PORT" ;;
+    local|.)                        echo ""              ;;
     *) return 1 ;;
   esac
 }
@@ -1817,21 +1846,23 @@ _xfm_port() {
 # รับ nickname → คืนชื่อแสดงผลสวยๆ
 _xfm_label() {
   case "$(_xfm_lower "$1")" in
-    win|windows) cn 75 b "🖥️  win"    ;;
-    wsl)         cn 46 b "🐧  wsl"   ;;
-    wsl2)        cn 46 b "🐧  wsl2"  ;;
-    tm|termux)   cn 226 b "📱  tm"    ;;
-    mm|mumu)     cn 208 b "🎮  mm"    ;;
-    deb|debian)  cn 87 b "🔷  deb"   ;;
-    local|.)     cn 255 b "💻  local"  ;;
-    *)           cn 244 "" "❓  $1"    ;;
+    win|windows|window|git-bash|gb) cn 75 b "🖥️  win"     ;;
+    wsl)                            cn 46 b "🐧  wsl"     ;;
+    wsl2)                           cn 46 b "🐧  wsl2"    ;;
+    tm|termux)                      cn 226 b "📱  tm"      ;;
+    mm|mumu)                        cn 208 b "🎮  mm"      ;;
+    oppo)                           cn 214 b "📱  oppo"    ;;
+    acodex)                         cn 141 b "💻  acodex"  ;;
+    deb|debian)                     cn 87 b "🔷  deb"     ;;
+    local|.)                        cn 255 b "💻  local"   ;;
+    *)                              cn 244 "" "❓  $1"     ;;
   esac
 }
 
 # Validate machine name
 _xfm_valid() {
   case "$(_xfm_lower "$1")" in
-    win|windows|wsl|wsl2|tm|termux|mm|mumu|deb|debian|local|.) return 0 ;;
+    win|windows|window|git-bash|gb|wsl|wsl2|tm|termux|mm|mumu|oppo|acodex|deb|debian|local|.) return 0 ;;
     *) return 1 ;;
   esac
 }
@@ -1848,7 +1879,7 @@ _xfm_ssot() {
   fi
   # remote = SSH ไปถาม remote ว่า $SSOT คืออะไร
   local result
-  result=$(_xfm_ssh "$machine" 'echo "$SSOT"') 2>/dev/null
+  result=$(_xfm_ssh "$machine" 'echo "$SSOT"' 2>/dev/null)
   if [[ -n "$result" ]]; then
     echo "$result"
   else
@@ -1862,16 +1893,22 @@ _xfm_ssot() {
 # $SSOT expand เป็น local path ต้อง translate เป็น remote path ก่อน
 _xfm_translate_path() {
   local path="$1" remote_machine="$2"
+  # Cross-platform path normalization for Windows / WSL
+  if command -v resolve_remote_path >/dev/null 2>&1; then
+    path="$(resolve_remote_path "$remote_machine" "$path")"
+  fi
   local local_ssot="${SSOT:-}"
-  local remote_ssot
-  remote_ssot=$(_xfm_ssot "$remote_machine")
 
   # ถ้า path เริ่มต้นด้วย local SSOT → แทนที่ด้วย remote SSOT
-  if [[ -n "$local_ssot" && "$path" == "$local_ssot"* && "$local_ssot" != "$remote_ssot" ]]; then
-    echo "${remote_ssot}${path#"$local_ssot"}"
-  else
-    echo "$path"
+  if [[ -n "$local_ssot" && "$path" == "$local_ssot"* ]]; then
+    local remote_ssot
+    remote_ssot=$(_xfm_ssot "$remote_machine")
+    if [[ -n "$remote_ssot" && "$local_ssot" != "$remote_ssot" ]]; then
+      echo "${remote_ssot}${path#"$local_ssot"}"
+      return
+    fi
   fi
+  echo "$path"
 }
 
 # Parse "machine:path" หรือ "path" (ไม่มี machine = local)
@@ -1913,7 +1950,7 @@ _xfm_ssh() {
   host=$(_xfm_host "$machine") || { _err "ไม่รู้จัก machine: $machine"; return 1; }
   user=$(_xfm_user "$machine")
   port=$(_xfm_port "$machine")
-  local -a ssh_opts=(-o ConnectTimeout=5 -o BatchMode=yes)
+  local -a ssh_opts=(-o ConnectTimeout=5 -o BatchMode=yes -o StrictHostKeyChecking=accept-new)
   local key="${KEY_NODE:-${HOME}/.ssh/id_ed25519_node}"
   [[ -f "$key" ]] && ssh_opts+=(-i "$key")
   [[ -n "$port" ]] && ssh_opts+=(-p "$port")
@@ -1930,10 +1967,14 @@ _xfm_push() {
   user=$(_xfm_user "$machine")
   port=$(_xfm_port "$machine")
   local key="${KEY_NODE:-${HOME}/.ssh/id_ed25519_node}"
-  local ssh_cmd="ssh -o ConnectTimeout=5 -o BatchMode=yes"
+  local ssh_cmd="ssh -o ConnectTimeout=5 -o BatchMode=yes -o StrictHostKeyChecking=accept-new"
   [[ -f "$key" ]] && ssh_cmd="$ssh_cmd -i $key"
   [[ -n "$port" ]] && ssh_cmd="$ssh_cmd -p $port"
-  rsync -avz --progress -e "$ssh_cmd" "$src" "$user@$host:$dst"
+  if [[ "${_SSOT_HAS_RSYNC:-0}" -eq 1 ]]; then
+    rsync -avz --progress -e "$ssh_cmd" "$src" "$user@$host:$dst"
+  else
+    scp -P "$port" -r "$src" "$user@$host:$dst"
+  fi
 }
 
 # rsync: remote → local
@@ -1945,10 +1986,14 @@ _xfm_pull() {
   user=$(_xfm_user "$machine")
   port=$(_xfm_port "$machine")
   local key="${KEY_NODE:-${HOME}/.ssh/id_ed25519_node}"
-  local ssh_cmd="ssh -o ConnectTimeout=5 -o BatchMode=yes"
+  local ssh_cmd="ssh -o ConnectTimeout=5 -o BatchMode=yes -o StrictHostKeyChecking=accept-new"
   [[ -f "$key" ]] && ssh_cmd="$ssh_cmd -i $key"
   [[ -n "$port" ]] && ssh_cmd="$ssh_cmd -p $port"
-  rsync -avz --progress -e "$ssh_cmd" "$user@$host:$src" "$dst"
+  if [[ "${_SSOT_HAS_RSYNC:-0}" -eq 1 ]]; then
+    rsync -avz --progress -e "$ssh_cmd" "$user@$host:$src" "$dst"
+  else
+    scp -P "$port" -r "$user@$host:$src" "$dst"
+  fi
 }
 
 # Check ว่า machine online ไหม คืน latency ms หรือ -1 ถ้า offline
@@ -1956,16 +2001,20 @@ _xfm_ping() {
   local machine="$1"
   local host; host=$(_xfm_host "$machine") || { echo "-1"; return; }
   local t0 t1
-  t0=$(date +%s%N 2>/dev/null || echo 0)
-  local -a ssh_opts=(-o ConnectTimeout=3 -o BatchMode=yes -o StrictHostKeyChecking=no)
+  t0=$(date +%s%3N 2>/dev/null || date +%s000 2>/dev/null || echo 0)
+  [[ "$t0" == *N ]] && t0=$(date +%s)000
+  local -a ssh_opts=(-o ConnectTimeout=3 -o BatchMode=yes -o StrictHostKeyChecking=accept-new)
   local key="${KEY_NODE:-${HOME}/.ssh/id_ed25519_node}"
   [[ -f "$key" ]] && ssh_opts+=(-i "$key")
   local port; port=$(_xfm_port "$machine")
   [[ -n "$port" ]] && ssh_opts+=(-p "$port")
 
   if ssh "${ssh_opts[@]}" "$(_xfm_user "$machine")@$host" "echo ok" &>/dev/null; then
-    t1=$(date +%s%N 2>/dev/null || echo 0)
-    echo $(( (t1 - t0) / 1000000 ))
+    t1=$(date +%s%3N 2>/dev/null || date +%s000 2>/dev/null || echo 0)
+    [[ "$t1" == *N ]] && t1=$(date +%s)000
+    local diff=$(( t1 - t0 ))
+    (( diff < 0 )) && diff=0
+    echo "$diff"
   else
     echo "-1"
   fi
@@ -1978,7 +2027,7 @@ xfm_help() {
   echo ""
   cn 87 "  ╔══════════════════════════════════════════════════════════════════╗"
   printf '%s\n' "$(c 87 b '  ║')  $(c 255 b '🌐  xfm — Cross-Machine File Manager  v2.0')                    $(c 87 b '║')"
-  printf '%s\n' "$(c 87 b '  ║')  $(c 244 d 'Multi-World: win │ wsl │ wsl2 │ tm (Termux) │ mm (MuMu) │ deb')     $(c 87 b '║')"
+  printf '%s\n' "$(c 87 b '  ║')  $(c 244 d 'Node Mesh: win │ wsl │ wsl2 │ tm │ mm │ oppo │ acodex')          $(c 87 b '║')"
   cn 87 "  ╚══════════════════════════════════════════════════════════════════╝"
 
   echo ""
@@ -1991,6 +2040,8 @@ xfm_help() {
   ctab "46:10 244:24 2:10 0:0"  "wsl2"      "$xfm_WSL2_USER@$xfm_WSL2_HOST" "$xfm_WSL2_PORT" "🐧  WSL2"
   ctab "226:10 244:24 2:10 0:0" "tm"        "$xfm_TM_USER@$xfm_TM_HOST"   "$xfm_TM_PORT"  "📱  Termux (Android)"
   ctab "208:10 244:24 2:10 0:0" "mm"        "$xfm_MM_USER@$xfm_MM_HOST"   "$xfm_MM_PORT"  "🎮  MuMu (Android VM)"
+  ctab "214:10 244:24 2:10 0:0" "oppo"      "$xfm_OPPO_USER@$xfm_OPPO_HOST" "$xfm_OPPO_PORT" "📱  OPPO (Android)"
+  ctab "141:10 244:24 2:10 0:0" "acodex"    "$xfm_ACODEX_USER@$xfm_ACODEX_HOST" "$xfm_ACODEX_PORT" "💻  AcodeX"
   ctab "87:10 244:24 2:10 0:0"  "deb"       "$xfm_DEB_USER@$xfm_DEB_HOST" "$xfm_DEB_PORT" "🔷  Debian (proot)"
   ctab "255:10 244:24 2:10 0:0" "local / ." "${USER:-$USERNAME}@localhost" "-"           "💻  เครื่องนี้"
   hline 66
@@ -2044,7 +2095,7 @@ xfm_status() {
   ctab "1:6 1:22 1:6 1:8 1:10 1:0" "NAME" "CONNECTION" "PORT" "LATENCY" "DISK USE" "STATUS"
   _sep
 
-  local machines=("win" "wsl" "wsl2" "tm" "mm" "deb")
+  local machines=("win" "wsl" "wsl2" "tm" "mm" "oppo" "acodex")
   for m in "${machines[@]}"; do
     local host user port label conn_str
     host=$(_xfm_host "$m")
@@ -2144,12 +2195,28 @@ xfm_cp() {
   # ── case 1: same machine ──────────────────────────────────────
   if [[ "$(_xfm_lower "$src_m")" == "$(_xfm_lower "$dst_m")" ]]; then
     _learn_box "xfm cp — copy บน machine เดียวกัน ($src_m)" \
-      "ssh -p <port> user@host 'cp -rv \"$src_p\" \"$dst_p\"'" \
-      "cp -rv         |copy recursive + verbose บน remote via SSH" \
+      "cp -rv \"$src_p\" \"$dst_p\"" \
+      "cp -rv         |copy recursive + verbose" \
       "(same machine) |src/dst อยู่เครื่องเดียวกัน ไม่ต้องส่งไฟล์ข้าม network"
     _step "copy บน $src_m: $src_p → $dst_p"
-    _xfm_ssh "$src_m" "cp -rv \"$src_p\" \"$dst_p\"" && _ok "copy สำเร็จ"
+    if [[ "$(_xfm_lower "$src_m")" == "local" || "$src_m" == "." ]]; then
+      cp -rv "$src_p" "$dst_p" && _ok "copy สำเร็จ"
+    else
+      _xfm_ssh "$src_m" "cp -rv \"$src_p\" \"$dst_p\"" && _ok "copy สำเร็จ"
+    fi
     return
+  fi
+
+  # Normalize Windows paths on Git-Bash (C:/... -> /c/...) to avoid rsync double-colon collision
+  if [[ "$(_xfm_lower "$src_m")" == "local" || "$src_m" == "." ]]; then
+    if command -v path_to_win >/dev/null 2>&1; then
+      [[ "$src_p" =~ ^[a-zA-Z]: ]] && src_p="$(path_to_win "$src_p")"
+    fi
+  fi
+  if [[ "$(_xfm_lower "$dst_m")" == "local" || "$dst_m" == "." ]]; then
+    if command -v path_to_win >/dev/null 2>&1; then
+      [[ "$dst_p" =~ ^[a-zA-Z]: ]] && dst_p="$(path_to_win "$dst_p")"
+    fi
   fi
 
   # ── case 2: local → remote ────────────────────────────────────
@@ -2334,7 +2401,7 @@ xfm_df() {
     "(all)          |xfm loop ทุก machine และรัน df พร้อมกัน (background &)" \
     "(parallel)     |ส่ง SSH request ทุกเครื่องพร้อมกัน แล้วรอ output ทีเดียว"
 
-  local machines=("win" "wsl" "wsl2" "tm" "mm" "deb")
+  local machines=("win" "wsl" "wsl2" "tm" "mm" "oppo" "acodex")
   [[ "$target" != "all" ]] && machines=("$target")
 
   for m in "${machines[@]}"; do

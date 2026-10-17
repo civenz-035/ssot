@@ -152,7 +152,7 @@ _create_node_env() {
     local user="$3"
     local port="$4"
     local upper
-    upper="$(echo "${name}" | tr '[:lower:]' '[:upper:]')"
+    upper="$(echo "${name}" | tr '[:lower:]' '[:upper:]' | tr '-' '_')"
 
     local nodes_dir
     nodes_dir="$(_nodes_dir)"

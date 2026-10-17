@@ -13,7 +13,14 @@ ssh_() {
     case "$tar" in
         t|tm|termux|TERMUX)         ssh termux    "$@" ;;
         w|tw|window|win|WINDOW)     ssh window    "$@" ;;
-        gb|gitbash|GITBASH|g)       ssh window    "& '${WIN_GIT_BASH}' --login -i" "$@" ;;
+        gb|gitbash|GITBASH|g)
+            local _gb="${WIN_GIT_BASH:-C:/PROGRA~1/Git/bin/bash.exe}"
+            if [[ $# -gt 0 ]]; then
+                ssh window "${_gb} --login -c $(printf '%q' "$*")"
+            else
+                ssh -tt window "${_gb} --login -i"
+            fi
+            ;;
         mm|mumu|MUMU|m)             ssh mumu      "$@" ;;
         wsl|WSL)                    ssh wsl       "$@" ;;
         wsl2|WSL2)                  ssh wsl2      "$@" ;;
@@ -96,6 +103,11 @@ push_cmd() {
     # ปลายทางเริ่มต้น: ถ้าไม่ระบุให้ลงที่ Path เดียวกันกับฝั่งต้นทาง
     dest="${dest:-$src}"
 
+    # Auto-resolve path format ตาม node ปลายทาง
+    if declare -F resolve_remote_path >/dev/null 2>&1; then
+        dest="$(resolve_remote_path "$node" "$dest")"
+    fi
+
     cn 10 bi ">> Pushing to ${TARGET_HOST} (${TARGET_USER}@${TARGET_HOST}:${TARGET_PORT})..."
     
     # รัน rsync: แยก -e "ssh -p ..." ออกจาก source และ destination
@@ -127,6 +139,11 @@ pull_cmd() {
 
     # ดึง Config ของปลายทาง
     node_resolve "$node" || return 1
+
+    # Auto-resolve path format ฝั่ง remote
+    if declare -F resolve_remote_path >/dev/null 2>&1; then
+        remote_src="$(resolve_remote_path "$node" "$remote_src")"
+    fi
 
     cn 10 bi "<< Pulling from ${TARGET_HOST} (${TARGET_USER}@${TARGET_HOST}:${TARGET_PORT})..."
 
