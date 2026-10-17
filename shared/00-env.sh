@@ -37,12 +37,13 @@ elif [[ -f "${SSOT:-$HOME/ssot}/.env.secret" ]]; then
 fi
 
 # ============================================================
-# 1. WORKSPACE PATHS (Derived from JOE_ENV basics)
+# 1. WORKSPACE PATHS (PATH RESOLVED NODE MESH NETWORK) 
 # ============================================================
 
 
 case "$JOE_ENV" in
     TERMUX)
+         export HTM="/data/data/com.termux/files/home"
          export HERMES_DIR="/data/data/com.termux/files/home/.hermes"
          export PYTHON_VENV="$HOME/.dash_venv/bin/activate"
          export SDCARD_PATH="/storage/emulated/0/"
@@ -51,18 +52,21 @@ case "$JOE_ENV" in
          
          ;;
     MUMU)
+         export HTM="/data/data/com.termux/files/home"
          export HERMES_DIR="/data/data/com.termux/files/home/.hermes"
          export PYTHON_VENV="$HOME/.dash_venv/bin/activate"
          export SDCARD_PATH="/storage/emulated/0/"
          export NODE_HOST="mumu"
          ;;
     OPPO)
+         export HTM="/data/data/com.termux/files/home"
          export HERMES_DIR="/data/data/com.termux/files/home/.hermes"
          export PYTHON_VENV="$HOME/.dash_venv/bin/activate"
          export SDCARD_PATH="/storage/emulated/0/"
          export NODE_HOST="oppo"
          ;;
     ACODEX)
+         export HTM="/data/data/com.termux/files/home"
          export NODE_HOST="acodex"
          ;;
 	WSL)

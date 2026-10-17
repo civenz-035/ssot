@@ -342,4 +342,108 @@ sync_repo(){
     done
 }
 
+# -- echo short cut
+
+e2f() {
+    local mode=""
+    local file_path=""
+    local no_newline=0
+    local enable_escape=0
+
+    # Parse options
+    while (( $# > 0 )); do
+        case "$1" in
+            -w|--write|-a|--append)
+                if (( $# < 2 )); then
+                    command -v cn >/dev/null 2>&1 && cn r b "e2f: missing file path for $1" >&2 || echo "e2f: missing file path for $1" >&2
+                    return 1
+                fi
+                mode="append"
+                file_path="$2"
+                shift 2
+                ;;
+            -o|-O|--override|--overwrite)
+                if (( $# < 2 )); then
+                    command -v cn >/dev/null 2>&1 && cn r b "e2f: missing file path for $1" >&2 || echo "e2f: missing file path for $1" >&2
+                    return 1
+                fi
+                mode="override"
+                file_path="$2"
+                shift 2
+                ;;
+            -n|--no-newline)
+                no_newline=1
+                shift
+                ;;
+            -e)
+                enable_escape=1
+                shift
+                ;;
+            --no-expand)
+                # Flag alias: ensures escape interpretation is disabled
+                enable_escape=0
+                shift
+                ;;
+            -h|--help)
+                echo "Usage: e2f [OPTIONS] [FILE] [MESSAGE...]"
+                echo "Options:"
+                echo "  -w, --write, -a, --append <file>  Append message or stdin to file"
+                echo "  -O, --override, -o <file>         Overwrite file with message or stdin"
+                echo "  -n, --no-newline                  Do not output trailing newline"
+                echo "  -e                                Enable backslash escape interpretation"
+                echo "  --no-expand                       Disable escape interpretation (literal)"
+                echo "  -h, --help                        Show this help message"
+                return 0
+                ;;
+            --)
+                shift
+                break
+                ;;
+            *)
+                break
+                ;;
+        esac
+    done
+
+    # Ensure target parent directory exists if writing to file
+    if [[ -n "$file_path" ]]; then
+        local target_dir
+        target_dir="$(dirname "$file_path")"
+        if [[ -n "$target_dir" && "$target_dir" != "." && ! -d "$target_dir" ]]; then
+            mkdir -p "$target_dir" 2>/dev/null
+        fi
+    fi
+
+    # Build format string
+    local fmt="%s"
+    (( enable_escape )) && fmt="%b"
+    (( ! no_newline )) && fmt="${fmt}\n"
+
+    # Route output based on mode and inputs
+    if [[ "$mode" == "append" ]]; then
+        if (( $# > 0 )); then
+            printf "$fmt" "$*" >> "$file_path"
+        elif [[ ! -t 0 ]]; then
+            cat >> "$file_path"
+        else
+            touch "$file_path"
+        fi
+    elif [[ "$mode" == "override" ]]; then
+        if (( $# > 0 )); then
+            printf "$fmt" "$*" > "$file_path"
+        elif [[ ! -t 0 ]]; then
+            cat > "$file_path"
+        else
+            : > "$file_path"
+        fi
+    else
+        # Default: stdout behavior
+        if (( $# > 0 )); then
+            printf "$fmt" "$*"
+        elif [[ ! -t 0 ]]; then
+            cat
+        fi
+    fi
+}
+
 
