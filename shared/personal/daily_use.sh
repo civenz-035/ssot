@@ -447,11 +447,17 @@ e2f() {
 }
 
 # -- get file path of function --
-get_fpath() {
+get_path() {
 
     local func_name="$@"
+    local path=""
     for f in $func_name; do
-        wtf "$f" | awk 'NR==1 {print $7}'
+       path+="$(wtf "$f" | awk 'NR==1 {print $7}')\n"
     done
+    local output=$(printf "%b" "$path")
+    cb_copy "$output"
+    echo "$output"
 }
+alias gp='get_path'
+
 
