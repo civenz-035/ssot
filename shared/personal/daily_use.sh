@@ -446,4 +446,12 @@ e2f() {
     fi
 }
 
+# -- get file path of function --
+get_fpath() {
+
+    local func_name="$@"
+    for f in $func_name; do
+        wtf "$f" | awk 'NR==1 {print $7}'
+    done
+}
 
