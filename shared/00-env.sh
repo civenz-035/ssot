@@ -70,6 +70,7 @@ case "$JOE_ENV" in
          export NODE_HOST="acodex"
          ;;
 	WSL)
+				 export HTM="/data/data/com.termux/files/home"
          export HERMES_DIR="$HOME/.hermes"
          export PYTHON_VENV="$HOME/.venv/bin/activate"
          export NODE_HOST="wsl"
@@ -80,6 +81,8 @@ case "$JOE_ENV" in
          export hpc="/mnt/c/Users/User"
          ;;
     WSL2)
+
+				 export HTM="/data/data/com.termux/files/home"		
          export HERMES_DIR="$HOME/.hermes"
          export PYTHON_VENV="$HOME/.venv/bin/activate"
          export NODE_HOST="wsl2"
@@ -90,6 +93,7 @@ case "$JOE_ENV" in
          export hpc="/mnt/c/Users/User"
          ;;
     GIT-BASH)
+				 export HTM="/data/data/com.termux/files/home"	
          export HERMES_DIR="$HOME/AppData/Local/hermes"
          export PYTHON_VENV="$HOME/.venv/bin/activate"
          export NODE_HOST="window"
@@ -101,6 +105,7 @@ case "$JOE_ENV" in
 
          ;;
     *)
+				 export HTM="/data/data/com.termux/files/home"
          export PYTHON_VENV="$htm/.dash_venv/bin/activate"
          export NODE_HOST="linux"
          ;;
