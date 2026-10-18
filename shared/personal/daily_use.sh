@@ -21,6 +21,7 @@ Commands:
   d -sh [args...]          Run simulator (Bash engine)
   d -cc [calc-args...]     BaseBet & Risk Calculator
   d -sv                    Start Web Config Editor UI
+  d -mn                    เมนูแบบกดเลข (presets 3 พระโซน + รัน/บันทึก)
   d -h                     Show this help banner
 
 ─────────────────────────────────────────────────────────────
@@ -64,6 +65,9 @@ d(){
 				;;
 		-sv|--server)
 				cd "$$sim" && $_py server/dice-server.py
+				;;
+		-mn|--menu)
+				bash "$sim/bin/menu.sh"
 				;;
 		-h|--help)
 				banner_ 
