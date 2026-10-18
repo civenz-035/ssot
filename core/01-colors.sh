@@ -249,7 +249,36 @@ cbgl() {
 #   style : b=bold d=dim i=italic u=underline (ต่อกันได้ เช่น bu)
 # ตัวอย่าง: rainbow_palette "HELLO"   → สีรุ้งธรรมดา
 #           rainbow_palette bu "HELLO" → สีรุ้ง หนา+ขีดเส้นใต้
+
+#  -- palette storage
+palettes_(){
+		declare -A palettes=(
+	[default]="196 208 226 46 51 21 129"
+	[white]="236 236 237 238 239 240 241 241 242 243 244 245 246 247 252 254 255"
+	[neon]="9 10 27 11 196 202 198 91 235 256 242"
+  )
+
+		case "$1" in
+			-d|--default)
+			    palette_picked="default"
+					;;
+			-w|--white)
+			    palette_picked="white"
+					;;
+			-n|--neon)
+			    palette_picked="neon"
+					;;
+			*)
+			    palette_picked="default"
+					;;
+		esac			
+
+		read -r -a palette <<< "${palettes[$palette_picked]}"
+
+}
 rainbow_palette() {
+	  local pr=${1:--d} 
+		shift
     local text="${1:-}"
     local style=""
 
@@ -261,7 +290,8 @@ rainbow_palette() {
     fi
 
     local length="${#text}"
-    local palette=(196 208 226 46 51 21 129)
+    # local palette=(196 208 226 46 51 21 129)
+		palettes_ "$pr"
     local palette_size="${#palette[@]}"
     local result=""
 
