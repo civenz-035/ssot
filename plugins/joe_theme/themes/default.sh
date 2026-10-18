@@ -299,7 +299,7 @@ _set_prompt() {
     # -- 3. ประกอบร่าง Dynamic PS1 (Prompt)
     local PS1_=""
     PS1_+="${border_top}\n"
-    PS1_+="${prompt_content}\n"
+    PS1_+="$(c "" "" --bg "235" "${prompt_content}")\n"
     PS1_+="${border_bot}\n"
     PS1_+=" ${THEME_DEF_POINTER} "
 
