@@ -223,6 +223,24 @@ _u() { printf '\e[4m'; }                # underline
 # _c_apply <existing_color_esc> <text> — wrap text with an existing color escape (used when color is computed at runtime)
 _c_apply() { printf '%s%s\e[0m' "$1" "$2"; }
 
+# ============================================================
+# BACKGROUND-ONLY COLOR HELPERS
+#   cbg  <num> <pre-colored-text>   -- set bg only, print content, reset bg (preserve fg/style)
+#   cbgl <num> <pre-colored-text>   -- same + newline
+#
+# WHY: ANSI bg (48;5;N) and fg (38;5;N) are separate channels.
+#      \e[49m resets bg only -- fg/bold/italic stay intact.
+#      Safe to wrap any pre-colored string without touching its escape codes.
+# ============================================================
+cbg() {
+    local bg_num="$1"; shift
+    printf "%s%s\e[49m" "$(_bg "$bg_num")" "$*"
+}
+cbgl() {
+    cbg "$@"
+    printf "\n"
+}
+
 
 # ============================================================
 # RAINBOW (V2 — full spectrum)
