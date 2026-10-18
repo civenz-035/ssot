@@ -216,7 +216,11 @@ refresh_shell() {
                 ;;
             -q|--quick)
                  _C --shell -d "source $HOME/.zshrc" "source $HOME/.bashrc"
-
+                # -- no clear screen
+                return 
+                ;;
+            -e|--exec)
+                 _C --shell -d "exec zsh" "exec 'bash'"
                 return 
                 ;;
             *) 
@@ -234,6 +238,7 @@ refresh_shell() {
 }
 alias pp="refresh_shell"
 alias qpp='refresh_shell -q'
+alias epp='refresh_shell -e'
 
 
 # ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬ #
