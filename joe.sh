@@ -214,6 +214,11 @@ refresh_shell() {
                 LOAD_LIST="${2:-""}" 
                 shift 2 
                 ;;
+            -q|--quick)
+                 _C --shell -d "source $HOME/.zshrc" "source $HOME/.bashrc"
+
+                return 
+                ;;
             *) 
                 LOAD_LIST="${1:-""}" 
                 shift 1 
@@ -228,6 +233,8 @@ refresh_shell() {
     #cn 46 b "✓ Config reloaded!"
 }
 alias pp="refresh_shell"
+alias qpp='refresh_shell -q'
+
 
 # ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬ #
 #                      START UP                      #

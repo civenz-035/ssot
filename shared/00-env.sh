@@ -405,3 +405,4 @@ export POL_BK=$BEP20_BK
 export sim="$DICE_SIM_DIR"
 export mhp="$MATHS_HELPER_DIR"
 
+export bn_always="\` $(rc b "αℓways ωith γσυ")  ❤️"
