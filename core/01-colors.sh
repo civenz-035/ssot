@@ -225,16 +225,57 @@ _c_apply() { printf '%s%s\e[0m' "$1" "$2"; }
 
 # ============================================================
 # BACKGROUND-ONLY COLOR HELPERS
-#   cbg  <num> <pre-colored-text>   -- set bg only, print content, reset bg (preserve fg/style)
-#   cbgl <num> <pre-colored-text>   -- same + newline
+#   cbg  [--ps] <num|color> <pre-colored-text> -- set bg only, print content, reset bg (preserve fg/style)
+#   cbgl [--ps] <num|color> <pre-colored-text> -- same + newline
 #
 # WHY: ANSI bg (48;5;N) and fg (38;5;N) are separate channels.
 #      \e[49m resets bg only -- fg/bold/italic stay intact.
-#      Safe to wrap any pre-colored string without touching its escape codes.
+#      To preserve background across inner \e[0m resets (from psc/c/style),
+#      cbg seamlessly re-applies the background escape after every reset,
+#      and auto-wraps with \[...\] when used in bash PS1 prompts.
 # ============================================================
 cbg() {
+    local is_ps=0
+    if [[ "$1" =~ ^(-p|-ps|--ps)$ ]]; then
+        is_ps=1
+        shift
+    fi
+
     local bg_num="$1"; shift
-    printf "%s%s\e[49m" "$(_bg "$bg_num")" "$*"
+    local str="$*"
+
+    case "$bg_num" in
+        rc|rand) command -v random_core >/dev/null 2>&1 && bg_num="$(random_core roll default)" || bg_num=16 ;;
+        rc:*|rand:*) command -v random_core >/dev/null 2>&1 && bg_num="$(random_core get "${bg_num#*:}")" || bg_num=16 ;;
+        r) bg_num=196 ;; lr) bg_num=203 ;;
+        g) bg_num=82  ;; lg) bg_num=46  ;;
+        y) bg_num=226 ;; cr) bg_num=51  ;;
+        b) bg_num=33  ;; ora) bg_num=208 ;;
+        gr) bg_num=244 ;;
+    esac
+
+    local esc
+    esc=$(printf '\033')
+    local bg_seq="${esc}[48;5;${bg_num}m"
+    local reset="${esc}[0m"
+    local reset_short="${esc}[m"
+    local reset_bg="${esc}[49m"
+
+    local pfx sfx
+    if [[ $is_ps -eq 1 || "$str" == *'\]'* || "$str" == *'\['* ]]; then
+        pfx="\[${bg_seq}\]"
+        sfx="\[${reset_bg}\]"
+    else
+        pfx="${bg_seq}"
+        sfx="${reset_bg}"
+    fi
+
+    # Sustain background across child resets and nested background resets
+    local res="${str//"$reset"/"$reset$bg_seq"}"
+    res="${res//"$reset_short"/"$reset_short$bg_seq"}"
+    res="${res//"$reset_bg"/"$bg_seq"}"
+
+    printf "%s%s%s" "$pfx" "$res" "$sfx"
 }
 cbgl() {
     cbg "$@"
@@ -249,49 +290,118 @@ cbgl() {
 #   style : b=bold d=dim i=italic u=underline (ต่อกันได้ เช่น bu)
 # ตัวอย่าง: rainbow_palette "HELLO"   → สีรุ้งธรรมดา
 #           rainbow_palette bu "HELLO" → สีรุ้ง หนา+ขีดเส้นใต้
-
-#  -- palette storage
-palettes_(){
-		declare -A palettes=(
-	[default]="196 208 226 46 51 21 129"
-	[white]="236 236 237 238 239 240 241 241 242 243 244 245 246 247 252 254 255"
-	[neon]="9 10 27 11 196 202 198 91 235 256 242"
-  )
-
-		case "$1" in
-			-d|--default)
-			    palette_picked="default"
-					;;
-			-w|--white)
-			    palette_picked="white"
-					;;
-			-n|--neon)
-			    palette_picked="neon"
-					;;
-			*)
-			    palette_picked="default"
-					;;
-		esac			
-
-		read -r -a palette <<< "${palettes[$palette_picked]}"
-
+palettes_() {
+    case "$1" in
+        -w|--white|white)
+            echo "236 237 238 239 240 241 242 243 244 245 246 247 250 252 254 255"
+            ;;
+        -b|--blue|blue)
+            echo "17 18 19 20 21 27 33 39 45 51 87 123 159"
+            ;;
+        -c|--cyan|cyan)
+            echo "23 24 30 31 37 38 44 45 50 51 86 87 122 123 159"
+            ;;
+        -g|--green|green)
+            echo "22 28 34 40 46 82 83 118 119 154 155 190 191"
+            ;;
+        -r|--red|red)
+            echo "52 88 124 160 196 202 203 209 210 216 217 223"
+            ;;
+        -m|--magenta|-v|--violet|--purple|purple)
+            echo "53 54 55 56 57 93 129 165 201 207 213 219 225"
+            ;;
+        -o|--orange|orange)
+            echo "52 88 94 130 166 172 202 208 214 220 226"
+            ;;
+        -y|--yellow|--gold|gold|yellow)
+            echo "58 94 100 136 142 178 184 214 220 226 227 228 229"
+            ;;
+        -pk|--pink|pink)
+            echo "53 89 125 161 197 198 199 205 206 212 218 224 225"
+            ;;
+        --fire|fire)
+            echo "52 88 124 160 196 202 208 214 220 226"
+            ;;
+        --ice|ice)
+            echo "17 18 19 21 27 33 39 45 51 87 123 159 231 255"
+            ;;
+        --sunset|sunset)
+            echo "53 54 93 129 161 197 202 208 214 220 226"
+            ;;
+        -n|--neon|neon)
+            echo "9 10 27 11 196 202 198 91 235 226 242"
+            ;;
+        -p|--pastel|pastel)
+            echo "${RC_PALETTE_PASTEL:-167 173 136 71 68 105 132 178 150 139 174 180}"
+            ;;
+        --dim|dim)
+            echo "${RC_PALETTE_DIM:-53 22 23 17 54 58 236 64 61}"
+            ;;
+        -d|--default|default|*)
+            echo "196 208 226 46 51 21 129"
+            ;;
+    esac
 }
 rainbow_palette() {
-	  local pr=${1:--d} 
-		shift
-    local text="${1:-}"
+    local -a palette_types=()
     local style=""
 
-    # ตัวแรกเป็น style ถ้าตรงแพทเทิร์น b/d/i/u (แบบเดียวกับ rc)
-    if [[ -z "$1" ]] || [[ "$1" =~ ^[bdiu]{1,4}$ ]]; then
-        style="$1"
-        shift 1
-        text="${1:-}"
-    fi
+    # 1. Parse optional palette flags, help, and style prefixes in any order
+    while (( $# > 0 )); do
+        case "$1" in
+            -d|--default|-w|--white|-b|--blue|-c|--cyan|-g|--green|-r|--red|-m|--magenta|-v|--violet|--purple|-o|--orange|-y|--yellow|--gold|-pk|--pink|--fire|--ice|--sunset|-n|--neon|-p|--pastel|--dim)
+                palette_types+=("$1")
+                shift
+                ;;
+            -h|--help)
+                cat <<'EOF'
+Usage: mc [FLAGS...] [STYLE] <text...>
+Gradient & Palette Flags:
+  -w,  --white     Monochrome white/gray gradient
+  -b,  --blue      Deep navy -> bright sky blue gradient
+  -c,  --cyan      Teal -> aqua -> light cyan gradient
+  -g,  --green     Forest -> emerald -> lime green gradient
+  -r,  --red       Crimson -> fire red -> coral gradient
+  -m,  --purple    Violet -> magenta -> lavender gradient
+  -o,  --orange    Rust -> amber -> gold gradient
+  -y,  --yellow    Bronze -> bright yellow gradient
+  -pk, --pink      Plum -> hot pink -> baby pink gradient
+  --fire           Dark red -> orange -> bright yellow
+  --ice            Navy -> cyan -> crisp white
+  --sunset         Violet -> red -> orange -> yellow
+  -n,  --neon      Multi-color neon
+  -p,  --pastel    Soft pastel
+  -d,  --default   Classic 7-color rainbow
+Styles:
+  b (bold), d (dim), i (italic), u (underline), or combinations (e.g. bu)
+Note: Multiple flags can be combined (e.g. mc -b -c "Blue to Cyan")
+EOF
+                return 0
+                ;;
+            *)
+                if [[ "$1" =~ ^[bdiu]{1,4}$ && -z "$style" && $# -gt 1 ]]; then
+                    style="$1"
+                    shift
+                else
+                    break
+                fi
+                ;;
+        esac
+    done
 
+    # Default to "default" if no flags provided
+    (( ${#palette_types[@]} == 0 )) && palette_types=("default")
+
+    # Combine all requested palettes
+    local palette_str=""
+    for pt in "${palette_types[@]}"; do
+        palette_str+="$(palettes_ "$pt") "
+    done
+
+    local text="$*"
     local length="${#text}"
-    # local palette=(196 208 226 46 51 21 129)
-		palettes_ "$pr"
+    local -a palette
+    read -r -a palette <<< "$palette_str"
     local palette_size="${#palette[@]}"
     local result=""
 

@@ -26,6 +26,35 @@ if ! command -v psc >/dev/null 2>&1; then
     }
 fi
 
+if ! command -v cbg >/dev/null 2>&1; then
+    cbg() {
+        local is_ps=0
+        if [[ "$1" =~ ^(-p|-ps|--ps)$ ]]; then
+            is_ps=1; shift
+        fi
+        local bg_num="$1"; shift
+        local str="$*"
+        local esc
+        esc=$(printf '\033')
+        local bg_seq="${esc}[48;5;${bg_num}m"
+        local reset="${esc}[0m"
+        local reset_short="${esc}[m"
+        local reset_bg="${esc}[49m"
+        local pfx sfx
+        if [[ $is_ps -eq 1 || "$str" == *'\]'* || "$str" == *'\['* ]]; then
+            pfx="\[${bg_seq}\]"
+            sfx="\[${reset_bg}\]"
+        else
+            pfx="${bg_seq}"
+            sfx="${reset_bg}"
+        fi
+        local res="${str//"$reset"/"$reset$bg_seq"}"
+        res="${res//"$reset_short"/"$reset_short$bg_seq"}"
+        res="${res//"$reset_bg"/"$bg_seq"}"
+        printf "%s%s%s" "$pfx" "$res" "$sfx"
+    }
+fi
+
 # -- helper color
 _gr() {
     psc 235 d "$@"
@@ -33,7 +62,7 @@ _gr() {
 _lw() {
     psc 15 b "$@"
 }
-export joe-logo="\` αℓways ωith γσυ"
+
 # ======================================================
 # 2. THEME DEFAULTS & CONFIGURATION SYSTEM
 # ======================================================
@@ -42,12 +71,13 @@ export joe-logo="\` αℓways ωith γσυ"
 : "${THEME_DEF_BORDER_SEP:=|}"
 : "${THEME_DEF_BORDER_COLOR:=random}"
 : "${THEME_DEF_BORDER_STYLE:=b}"
-: "${THEME_DEF_STATUS:=❤️ ICE}"
+: "${THEME_DEF_STATUS:=❤️ ICE  }"
 : "${THEME_DEF_ENV:=${JOE_ENV:-${MY_DEVICE:-WSL2}}}"
 : "${THEME_DEF_ENV_COLOR:=202}"
 : "${THEME_DEF_POINTER:=-→}"
 : "${THEME_DEF_DIR_COLOR:=242}"
 : "${THEME_DEF_DIR_STYLE:=d}"
+: "${THEME_DEF_CONTENT_BG:=16}"
 : "${THEME_DEF_GIT:=1}"
 : "${THEME_DEF_MINI:=1}"
 : "${THEME_DEF_FETCH:=1}"
@@ -87,6 +117,10 @@ theme_default_config() {
                 THEME_DEF_DIR_COLOR="${2:-242}" ; shift 2 ;;
             -ds|--dir-style)
                 THEME_DEF_DIR_STYLE="${2:-d}" ; shift 2 ;;
+            -bg|--bg-color|--content-bg)
+                THEME_DEF_CONTENT_BG="${2:-16}" ; shift 2 ;;
+            --no-bg)
+                THEME_DEF_CONTENT_BG="none" ; shift ;;
             --git)
                 THEME_DEF_GIT=1 ; shift ;;
             --no-git)
@@ -111,6 +145,7 @@ theme_default_config() {
                 THEME_DEF_POINTER='-→'
                 THEME_DEF_DIR_COLOR=242
                 THEME_DEF_DIR_STYLE=d
+                THEME_DEF_CONTENT_BG=16
                 THEME_DEF_GIT=1
                 THEME_DEF_MINI=1
                 THEME_DEF_FETCH=1
@@ -236,11 +271,7 @@ _set_prompt() {
     local last_status_raw="$THEME_DEF_STATUS"
     local last_status
     if [ $exit_code -eq 0 ]; then
-        if command -v mc >/dev/null 2>&1; then
-            last_status="$(psc 45 b --bg "233" "$last_status_raw")"
-        else
-            last_status="$(psc 82 b "$last_status_raw")"
-        fi
+        last_status="$(psc 45 b "$last_status_raw")"
     else
         last_status="$(psc lr b "$last_status_raw")"
     fi
@@ -249,7 +280,6 @@ _set_prompt() {
     local cur_env="$THEME_DEF_ENV"
     local cur_shell="${_SHELL:-${SHELL##*/}}"
     local env_tag="< $(psc "$THEME_DEF_ENV_COLOR" d "$cur_env") : $(psc 240 d "$cur_shell") >"
-
     # -- USER@HOST
     local cur_user="${USER:-$(id -un)}"
     local cur_host="${NODE_HOST:-wsl2}"
@@ -271,6 +301,9 @@ _set_prompt() {
 
     # -- 1. รวมเนื้อหาของแถวกลางจริงที่จะแสดงผล
     local prompt_content="${sep} ${last_status} ${env_tag} ${user_host} in ${current_dir}${git_info} ${sep}"
+    if command -v cbg >/dev/null 2>&1 && [[ -n "${THEME_DEF_CONTENT_BG:-}" && "${THEME_DEF_CONTENT_BG}" != "none" ]]; then
+        prompt_content="$(cbg "$THEME_DEF_CONTENT_BG" "$prompt_content")"
+    fi
 
     # -- 2. Dynamic border calculation: ยิงวัดความกว้างรอบเดียว (One-Shot)
     local term_w
@@ -284,7 +317,7 @@ _set_prompt() {
         text_len=${#prompt_content}
     fi
 
-    local lens=$text_len
+    local lens=$((text_len -1))
     (( lens > (term_w - 2) )) && lens=$(( term_w - 2 ))
 
     local _str_t="" _str_b=""
@@ -295,16 +328,15 @@ _set_prompt() {
 
     local border_top="$(psc "$c_box" "$THEME_DEF_BORDER_STYLE" "${_str_t}")"
     local border_bot="$(psc "$c_box" "$THEME_DEF_BORDER_STYLE" "${_str_b}")"
-
     # -- 3. ประกอบร่าง Dynamic PS1 (Prompt)
     local PS1_=""
     PS1_+="${border_top}\n"
-    PS1_+="$(c "" "" --bg "235" "${prompt_content}")\n"
+    PS1_+="${prompt_content}\n"
     PS1_+="${border_bot}\n"
     PS1_+=" ${THEME_DEF_POINTER} "
 
     export -n PS1 2>/dev/null || true
-    PS1="$PS1_"
+    PS1=$PS1_
 }
 
 _SSOT_LAST_ROW=0
