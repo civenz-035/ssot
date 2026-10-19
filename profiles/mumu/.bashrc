@@ -60,3 +60,6 @@ export PATH="$HOME/.local/bin:$PATH"
 
 
 export TERM=xterm-256color
+
+# Added by simulator install script
+[[ -f '/data/data/com.termux/files/home/simulator/lib/alias.sh' ]] && source '/data/data/com.termux/files/home/simulator/lib/alias.sh'

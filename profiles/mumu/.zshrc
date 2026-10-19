@@ -168,3 +168,6 @@ esac
 export POWERLEVEL9K_DISABLE_GITSTATUS=true
 export GITSTATUS_ENABLE=0
  
+
+# Added by simulator install script
+[[ -f '/data/data/com.termux/files/home/simulator/lib/alias.sh' ]] && source '/data/data/com.termux/files/home/simulator/lib/alias.sh'
