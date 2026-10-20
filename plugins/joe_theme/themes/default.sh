@@ -72,11 +72,34 @@ _lw() {
 : "${THEME_DEF_BORDER_COLOR:=random}"
 : "${THEME_DEF_BORDER_STYLE:=b}"
 : "${THEME_DEF_STATUS:=❤️ ICE  }"
+
+# หมวดหมู่ 1: Environment Tag (env_tag)
 : "${THEME_DEF_ENV:=${JOE_ENV:-${MY_DEVICE:-WSL2}}}"
 : "${THEME_DEF_ENV_COLOR:=202}"
-: "${THEME_DEF_POINTER:=-→}"
+: "${THEME_DEF_ENV_STYLE:=d}"
+
+# หมวดหมู่ 2: Current Shell (cur_shell)
+: "${THEME_DEF_SHELL:=auto}"
+: "${THEME_DEF_SHELL_COLOR:=240}"
+: "${THEME_DEF_SHELL_STYLE:=d}"
+
+# หมวดหมู่ 3: Current User (cur_user)
+: "${THEME_DEF_USER:=auto}"
+: "${THEME_DEF_USER_COLOR:=33}"
+: "${THEME_DEF_USER_STYLE:=b}"
+
+# หมวดหมู่ 4: Current Host (cur_host)
+: "${THEME_DEF_HOST:=auto}"
+: "${THEME_DEF_HOST_COLOR:=198}"
+: "${THEME_DEF_HOST_STYLE:=d}"
+
+# หมวดหมู่ 5: Current Directory (current_dir)
+: "${THEME_DEF_DIR:=auto}"
 : "${THEME_DEF_DIR_COLOR:=242}"
 : "${THEME_DEF_DIR_STYLE:=d}"
+
+# อื่นๆ
+: "${THEME_DEF_POINTER:=-→}"
 : "${THEME_DEF_CONTENT_BG:=16}"
 : "${THEME_DEF_GIT:=1}"
 : "${THEME_DEF_MINI:=1}"
@@ -85,8 +108,69 @@ _lw() {
 theme_default_config() {
     while (( $# > 0 )); do
         case "$1" in
+            # --------------------------------------------------
+            # หมวดหมู่ที่ 1: env_tag -> tdc -e <color> <style> <label>
+            # --------------------------------------------------
+            -e|--env|-env|--env-tag)
+                [[ -n "${2:-}" && "$2" != "-" ]] && THEME_DEF_ENV_COLOR="$2"
+                [[ -n "${3:-}" && "$3" != "-" ]] && THEME_DEF_ENV_STYLE="$3"
+                if [[ -n "${4:-}" && "$4" != "-" ]]; then
+                    if [[ "$4" == "auto" ]]; then
+                        THEME_DEF_ENV="${JOE_ENV:-${MY_DEVICE:-WSL2}}"
+                    else
+                        THEME_DEF_ENV="$4"
+                    fi
+                fi
+                shift $(( $# >= 4 ? 4 : $# )) ;;
+
+            # --------------------------------------------------
+            # หมวดหมู่ที่ 2: cur_shell -> tdc -sh <color> <style> <label>
+            # --------------------------------------------------
+            -sh|--shell|-shell|--cur-shell)
+                [[ -n "${2:-}" && "$2" != "-" ]] && THEME_DEF_SHELL_COLOR="$2"
+                [[ -n "${3:-}" && "$3" != "-" ]] && THEME_DEF_SHELL_STYLE="$3"
+                if [[ -n "${4:-}" && "$4" != "-" ]]; then
+                    THEME_DEF_SHELL="$4"
+                fi
+                shift $(( $# >= 4 ? 4 : $# )) ;;
+
+            # --------------------------------------------------
+            # หมวดหมู่ที่ 3: cur_user -> tdc -u <color> <style> <label>
+            # --------------------------------------------------
+            -u|--user|-user|--cur-user)
+                [[ -n "${2:-}" && "$2" != "-" ]] && THEME_DEF_USER_COLOR="$2"
+                [[ -n "${3:-}" && "$3" != "-" ]] && THEME_DEF_USER_STYLE="$3"
+                if [[ -n "${4:-}" && "$4" != "-" ]]; then
+                    THEME_DEF_USER="$4"
+                fi
+                shift $(( $# >= 4 ? 4 : $# )) ;;
+
+            # --------------------------------------------------
+            # หมวดหมู่ที่ 4: cur_host -> tdc -H <color> <style> <label>
+            # --------------------------------------------------
+            -H|-host|--host|--cur-host)
+                [[ -n "${2:-}" && "$2" != "-" ]] && THEME_DEF_HOST_COLOR="$2"
+                [[ -n "${3:-}" && "$3" != "-" ]] && THEME_DEF_HOST_STYLE="$3"
+                if [[ -n "${4:-}" && "$4" != "-" ]]; then
+                    THEME_DEF_HOST="$4"
+                fi
+                shift $(( $# >= 4 ? 4 : $# )) ;;
+
+            # --------------------------------------------------
+            # หมวดหมู่ที่ 5: current_dir -> tdc -d <color> <style> <label>
+            # --------------------------------------------------
+            -d|--dir|-dir|--current-dir)
+                [[ -n "${2:-}" && "$2" != "-" ]] && THEME_DEF_DIR_COLOR="$2"
+                [[ -n "${3:-}" && "$3" != "-" ]] && THEME_DEF_DIR_STYLE="$3"
+                if [[ -n "${4:-}" && "$4" != "-" ]]; then
+                    THEME_DEF_DIR="$4"
+                fi
+                shift $(( $# >= 4 ? 4 : $# )) ;;
+
+            # --------------------------------------------------
+            # Border & Layout
+            # --------------------------------------------------
             -b|--border)
-                # รองรับทั้งตัวเดียว หรือ "top,bot,sep,color"
                 local _val="${2:-}"
                 if [[ "$_val" == *,* ]]; then
                     IFS=',' read -r _t _b _s _c <<< "$_val"
@@ -109,14 +193,6 @@ theme_default_config() {
                 THEME_DEF_STATUS="${2:-'(ﾉ◕ .7oEz ◕)ﾉ*:･ﾟ✧'}" ; shift 2 ;;
             -p|--pointer|--arrow)
                 THEME_DEF_POINTER="${2:--→}" ; shift 2 ;;
-            -e|--env)
-                THEME_DEF_ENV="${2:-WSL2}" ; shift 2 ;;
-            -ec|--env-color)
-                THEME_DEF_ENV_COLOR="${2:-202}" ; shift 2 ;;
-            -d|--dir-color)
-                THEME_DEF_DIR_COLOR="${2:-242}" ; shift 2 ;;
-            -ds|--dir-style)
-                THEME_DEF_DIR_STYLE="${2:-d}" ; shift 2 ;;
             -bg|--bg-color|--content-bg)
                 THEME_DEF_CONTENT_BG="${2:-16}" ; shift 2 ;;
             --no-bg)
@@ -133,6 +209,15 @@ theme_default_config() {
                 THEME_DEF_FETCH=1 ; shift ;;
             --no-fetch)
                 THEME_DEF_FETCH=0 ; shift ;;
+
+            # Legacy fallback flags
+            -ec|--env-color)
+                THEME_DEF_ENV_COLOR="${2:-202}" ; shift 2 ;;
+            -dc|--dir-color)
+                THEME_DEF_DIR_COLOR="${2:-242}" ; shift 2 ;;
+            -ds|--dir-style)
+                THEME_DEF_DIR_STYLE="${2:-d}" ; shift 2 ;;
+
             -r|--reset)
                 THEME_DEF_BORDER_TOP="${BOT_LINE:-$'\u2581'}"
                 THEME_DEF_BORDER_BOT="${TOP_LINE:-$'\u2594'}"
@@ -142,9 +227,20 @@ theme_default_config() {
                 THEME_DEF_STATUS='(ﾉ◕ .7oEz ◕)ﾉ*:･ﾟ✧'
                 THEME_DEF_ENV="${JOE_ENV:-${MY_DEVICE:-WSL2}}"
                 THEME_DEF_ENV_COLOR=202
-                THEME_DEF_POINTER='-→'
+                THEME_DEF_ENV_STYLE=d
+                THEME_DEF_SHELL="auto"
+                THEME_DEF_SHELL_COLOR=240
+                THEME_DEF_SHELL_STYLE=d
+                THEME_DEF_USER="auto"
+                THEME_DEF_USER_COLOR=33
+                THEME_DEF_USER_STYLE=b
+                THEME_DEF_HOST="auto"
+                THEME_DEF_HOST_COLOR=198
+                THEME_DEF_HOST_STYLE=d
+                THEME_DEF_DIR="auto"
                 THEME_DEF_DIR_COLOR=242
                 THEME_DEF_DIR_STYLE=d
+                THEME_DEF_POINTER='-→'
                 THEME_DEF_CONTENT_BG=16
                 THEME_DEF_GIT=1
                 THEME_DEF_MINI=1
@@ -153,21 +249,28 @@ theme_default_config() {
             -h|--help)
                 cat <<'EOF'
 Usage: tdc [OPTIONS] (or theme_default_config)
-  -b,  --border <str|t,b,s,c>   Border char(s) (e.g. "━" or "━,━,|,92")
-  -bc, --border-color <col>     Border color (256-color num or 'random')
-  -bs, --border-style <style>   Border style (b=bold, d=dim)
-  -sep,--border-sep <char>      Border separator (default '|')
-  -s,  --status <text>          Custom status/kaomoji text
-  -p,  --pointer <symbol>       Prompt pointer symbol (default: -→)
-  -e,  --env <name>             Environment label
-  -ec, --env-color <col>        Environment label color
-  -d,  --dir-color <col>        Current directory color
-  -ds, --dir-style <style>      Current directory style
-  --git / --no-git              Toggle git branch in prompt
-  --mini / --no-mini            Toggle smart mini prompt mode
-  --fetch / --no-fetch          Toggle fastfetch on startup
-  -r,  --reset                  Reset all theme settings to defaults
-  -h,  --help                   Display this help message
+
+Category Configs (Format: <flag> <color> <style> <label> -> shift 4):
+  -e,  --env   <col> <style> <label>   Environment tag (use '-' or 'auto' for default)
+  -sh, --shell <col> <style> <label>   Current shell (use '-' or 'auto' for default)
+  -u,  --user  <col> <style> <label>   Current user (use '-' or 'auto' for default)
+  -H,  --host  <col> <style> <label>   Current host (use '-' or 'auto' for default)
+  -d,  --dir   <col> <style> <label>   Current dir (use '-' or 'auto' for dynamic dir)
+
+Border & Layout Options:
+  -b,  --border <str|t,b,s,c>          Border char(s) (e.g. "━" or "━,━,|,92")
+  -bc, --border-color <col>            Border color (256-color num or 'random')
+  -bs, --border-style <style>          Border style (b=bold, d=dim)
+  -sep,--border-sep <char>             Border separator (default '|')
+  -s,  --status <text>                 Custom status/kaomoji text
+  -p,  --pointer <symbol>              Prompt pointer symbol (default: -→)
+  -bg, --bg-color <col>                Content background color (or 'none')
+  --no-bg                              Disable content background
+  --git / --no-git                     Toggle git branch in prompt
+  --mini / --no-mini                   Toggle smart mini prompt mode
+  --fetch / --no-fetch                 Toggle fastfetch on startup
+  -r,  --reset                         Reset all theme settings to defaults
+  -h,  --help                          Display this help message
 EOF
                 return 0 ;;
             *)
@@ -176,7 +279,8 @@ EOF
     done
 }
 
-# Alias สะดวกสำหรับปรับแต่งทันทีจาก Terminal
+# Alias & Function สะดวกสำหรับปรับแต่งทันทีจาก Terminal
+tdc() { theme_default_config "$@"; }
 alias tdc='theme_default_config'
 
 # 3. ฟังก์ชันตรวจสอบ Git Branch แบบไม่หน่วงเครื่อง (Lightweight Git Status)
@@ -278,15 +382,27 @@ _set_prompt() {
 
     # -- Environment / Current shell
     local cur_env="$THEME_DEF_ENV"
-    local cur_shell="${_SHELL:-${SHELL##*/}}"
-    local env_tag="< $(psc "$THEME_DEF_ENV_COLOR" d "$cur_env") : $(psc 240 d "$cur_shell") >"
+    [[ -z "$cur_env" || "$cur_env" == "auto" ]] && cur_env="${JOE_ENV:-${MY_DEVICE:-WSL2}}"
+
+    local cur_shell="$THEME_DEF_SHELL"
+    [[ -z "$cur_shell" || "$cur_shell" == "auto" ]] && cur_shell="${_SHELL:-${SHELL##*/}}"
+
+    local env_tag="< $(psc "$THEME_DEF_ENV_COLOR" "$THEME_DEF_ENV_STYLE" "$cur_env") : $(psc "$THEME_DEF_SHELL_COLOR" "$THEME_DEF_SHELL_STYLE" "$cur_shell") >"
+
     # -- USER@HOST
-    local cur_user="${USER:-$(id -un)}"
-    local cur_host="${NODE_HOST:-wsl2}"
-    local user_host="$(psc 33 b "$cur_user")@$(psc 245 d "$cur_host")"
+    local cur_user="$THEME_DEF_USER"
+    [[ -z "$cur_user" || "$cur_user" == "auto" ]] && cur_user="${USER:-$(id -un)}"
+
+    local cur_host="$THEME_DEF_HOST"
+    [[ -z "$cur_host" || "$cur_host" == "auto" ]] && cur_host="${NODE_HOST:-wsl2}"
+
+    local user_host="$(psc "$THEME_DEF_USER_COLOR" "$THEME_DEF_USER_STYLE" "$cur_user")@$(psc "$THEME_DEF_HOST_COLOR" "$THEME_DEF_HOST_STYLE" "$cur_host")"
 
     # -- Current Dir & Git
-    local current_dir="$(psc "$THEME_DEF_DIR_COLOR" "$THEME_DEF_DIR_STYLE" "${PWD/#$HOME/\~}")"
+    local cur_dir="$THEME_DEF_DIR"
+    [[ -z "$cur_dir" || "$cur_dir" == "auto" ]] && cur_dir="${PWD/#$HOME/\~}"
+
+    local current_dir="$(psc "$THEME_DEF_DIR_COLOR" "$THEME_DEF_DIR_STYLE" "$cur_dir")"
     local git_info="$(_git_prompt)"
 
     # --- ปิดแถวหัวท้ายทาสีเดียวกับขอบบนล่าง
