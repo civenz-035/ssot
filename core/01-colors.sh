@@ -236,10 +236,27 @@ _c_apply() { printf '%s%s\e[0m' "$1" "$2"; }
 # ============================================================
 cbg() {
     local is_ps=0
-    if [[ "$1" =~ ^(-p|-ps|--ps)$ ]]; then
-        is_ps=1
-        shift
-    fi
+    local nl=0
+    local exp=0
+
+    while [[ "$1" =~ ^- ]]; do
+        case "$1" in
+            -p|-ps|--ps) is_ps=1; shift ;;
+            -h|-H|--help) 
+                echo "cbg: set background color only, print content, reset bg"
+                echo "Usage: cbg [-ps] [-n] [-e] <color> <text>"
+                return 0 
+                ;;
+            -n|-nl|--new) nl=1; shift ;;
+            -e|-exp|--escape) exp=1; shift ;;
+            -ne|-en) nl=1; exp=1; shift ;;
+            -np|-pn|-psn) nl=1; is_ps=1; shift ;;
+            -pe|-ep|-pse) is_ps=1; exp=1; shift ;;
+            -pne|-pen|-nep|-npe|-epn|-enp|-psne|-psen) nl=1; exp=1; is_ps=1; shift ;;
+            --) shift; break ;;
+            *) break ;;
+        esac
+    done
 
     local bg_num="$1"; shift
     local str="$*"
@@ -261,25 +278,31 @@ cbg() {
     local reset_short="${esc}[m"
     local reset_bg="${esc}[49m"
 
-    local pfx sfx
+    if (( exp == 1 )); then
+        printf -v str "%b" "$str"
+    fi
+
+    local pfx sfx inner_bg_seq
     if [[ $is_ps -eq 1 || "$str" == *'\]'* || "$str" == *'\['* ]]; then
         pfx="\[${bg_seq}\]"
         sfx="\[${reset_bg}\]"
+        inner_bg_seq="\[${bg_seq}\]"
     else
         pfx="${bg_seq}"
         sfx="${reset_bg}"
+        inner_bg_seq="${bg_seq}"
     fi
 
-    # Sustain background across child resets and nested background resets
-    local res="${str//"$reset"/"$reset$bg_seq"}"
-    res="${res//"$reset_short"/"$reset_short$bg_seq"}"
-    res="${res//"$reset_bg"/"$bg_seq"}"
+    local res="${str//"$reset"/"$reset$inner_bg_seq"}"
+    res="${res//"$reset_short"/"$reset_short$inner_bg_seq"}"
+    res="${res//"$reset_bg"/"$inner_bg_seq"}"
 
     printf "%s%s%s" "$pfx" "$res" "$sfx"
+    (( nl )) && printf "\n"
 }
+
 cbgl() {
-    cbg "$@"
-    printf "\n"
+    cbg -n "$@"
 }
 
 

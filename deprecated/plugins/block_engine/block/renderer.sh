@@ -221,8 +221,9 @@ render_row() {
 
     _pvar _tmp '%*s%*s%s%*s' "$value_pad" '' "$r_left" '' "$emr" "$r_right" ''
     row+="$_tmp"
+    row_bg=$(cbg 232 "$row")
 
-    echo -e "${pad}${hr_l}${row}${hr_r}"
+    echo -e "${pad}${hr_l}${row_bg}${hr_r}"
     
 }
 

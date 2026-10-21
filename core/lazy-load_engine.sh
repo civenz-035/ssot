@@ -4,14 +4,14 @@
 
 # -- block-engine loader
 _m(){
-	_check_ -f 'm' &&
+	_C -q -f 'm' &&
 	m "$@"
 }
 
 gt_lazyload(){
 
 	if ! declare -f "gt" &> /dev/null ; then
-		  _C -f gt 2&>/dev/null && echo "LOADED"
+		  _C -q -f gt && echo "LOADED"
 			gt "$@"
 	else
 			gt "$@"
