@@ -28,12 +28,13 @@ PASS=0
 FAIL=0
 SKIP=0
 TOTAL=0
-CBG_SOURCE="$ssot/core/01-colors.sh"
+
 # ------------------------------------------------------------
 # Load target
 # ------------------------------------------------------------
 
 if ! declare -F cbg >/dev/null 2>&1; then
+    CBG_SOURCE="${CBG_SOURCE:-${ssot:-$HOME/ssot}/core/01-colors.sh}"
     if [[ -n "${CBG_SOURCE:-}" && -f "$CBG_SOURCE" ]]; then
         # shellcheck source=/dev/null
         source "$CBG_SOURCE"
@@ -306,7 +307,7 @@ test_escape_payloads() {
 
     capture -e 196 '\n'
     assert_eq 'escape: newline expansion' \
-        "${BG196}" "$CAPTURED_OUTPUT"
+        "${BG196}"$'\n'"${RESET_BG}" "$CAPTURED_OUTPUT"
 
     capture -e 196 '\tTAB'
     assert_eq 'escape: tab expansion' \
@@ -470,4 +471,3 @@ if ((FAIL > 0)); then
 fi
 
 exit 0
-```

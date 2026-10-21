@@ -238,9 +238,8 @@ cbg() {
     local is_ps=0
     local nl=0
     local exp=0
-    local fl_arg="$1"
-    while [[ "$fl_arg" =~ ^- ]]; do
-        case "$fl_arg" in
+    while [[ $# -gt 0 && "$1" =~ ^- ]]; do
+        case "$1" in
             -p|-ps|--ps) is_ps=1; shift ;;
             -h|-H|--help) 
                 echo "cbg: set background color only, print content, reset bg"
@@ -254,9 +253,12 @@ cbg() {
             -pe|-ep|-pse) is_ps=1; exp=1; shift ;;
             -pne|-pen|-nep|-npe|-epn|-enp|-psne|-psen) nl=1; exp=1; is_ps=1; shift ;;
             --) shift; break ;;
+            -[0-9]*) break ;;
             *) break ;;
         esac
     done
+
+    (( $# == 0 )) && return 0
 
     local bg_num="$1"; shift
     local str="$*"
@@ -299,6 +301,7 @@ cbg() {
 
     printf "%s%s%s" "$pfx" "$res" "$sfx"
     (( nl )) && printf "\n"
+    return 0
 }
 
 cbgl() {
