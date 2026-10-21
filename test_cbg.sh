@@ -20,7 +20,7 @@
 #   Regression : edge cases and malformed inputs
 #   Stress     : randomized payloads
 # ============================================================
-source "$ssot/core/01-colors.sh"
+#source "$ssot/core/01-colors.sh"
 set -uo pipefail
 
 MODE="${1:-all}"
@@ -28,7 +28,7 @@ PASS=0
 FAIL=0
 SKIP=0
 TOTAL=0
-
+CBG_SOURCE="$ssot/core/01-colors.sh"
 # ------------------------------------------------------------
 # Load target
 # ------------------------------------------------------------

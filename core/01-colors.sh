@@ -238,9 +238,9 @@ cbg() {
     local is_ps=0
     local nl=0
     local exp=0
-
-    while [[ "$1" =~ ^- ]]; do
-        case "$1" in
+    local fl_arg="$1"
+    while [[ "$fl_arg" =~ ^- ]]; do
+        case "$fl_arg" in
             -p|-ps|--ps) is_ps=1; shift ;;
             -h|-H|--help) 
                 echo "cbg: set background color only, print content, reset bg"
