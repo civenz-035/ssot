@@ -2,7 +2,7 @@
 # ------------------------------------------------------------
 # File: dicebot.sh
 # ------------------------------------------------------------
-dice_dir="$dtpc/AppData/Local/Gambler.Bot"
+dice_dir="$hpc/AppData/Local/Gambler.Bot"
 dice_sim="$dice_dir/simulator"
 conf_dir="$dice_dir/simulator/config/dice.env"
 
