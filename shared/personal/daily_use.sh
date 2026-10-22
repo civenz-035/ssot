@@ -280,7 +280,12 @@ multi_git_manager() {
 
 # ALIASES
 alias gu='multi_git_manager'
-alias guall='gt sync all --add -m "quick update of all projects"'
+
+quick_git_workflow(){
+	local msg="$*"
+		gt sync all --add -m ${msg-"quick update of all projects"}
+}
+alias guall='quick_git_workflow'
 git_note(){
 
     file_path="$hpc/Desktop/main_sync/git knowledge/Git basic.md"
