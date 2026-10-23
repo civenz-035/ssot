@@ -449,6 +449,22 @@ EOF
 
 
 EOF
+            ;;
+		  	--*)  
+            mkdir -p "$(dirname "$target")"  
+            touch "$target" && 
+            cn y bi "✅ ไฟล์ .sh ถูกสร้างเรียบร้อยที่: $target" &&
+            chmod +x "$target" && c lg bi "ให้สิทธิ์รันไฟล์  ";c 45 b "$(basename "$target")  ";cn lg bi "เรียบร้อย"  && 
+            cat << EOF > "$target"
+#!/usr/bin/env python3
+# ------------------------------------------------------------
+# File: $(basename "$target")
+# ------------------------------------------------------------
+
+
+
+
+EOF
             ;;		
         *)  cn y b "usage : -d -sh -py -f"; return 1 ;;
     esac
@@ -458,7 +474,10 @@ EOF
 perm(){
     local target="${1:-$(cb_read)}"
     local perm="${2:-+x}"
-    chmod "$perm" "$target" && c 10 bi "ให้สิทธ์ $perm สำเร็จ";c 45 b "$(basename "$target")  ";cn 10 bi "เรียบร้อย" 
+		
+		if [[ -f "$target" ]]; then
+    	chmod "$perm" "$target" && c 10 bi "ให้สิทธ์ $perm สำเร็จ";c 45 b "$(basename "$target")  ";cn 10 bi "เรียบร้อย" 
+		fi	
 }
 
 
