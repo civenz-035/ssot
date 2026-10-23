@@ -1041,3 +1041,88 @@ print(f"{bc}╰{div}╯{rst}")
 }
 
 
+
+jmc() {
+
+		local declare -A p=(
+				[default]="196 208 226 46 51 21 129"
+				[white]="236 236 237 238 239 240 241 241 242 243 244 245 246 247 252 254 255"
+				[neon]="9 10 27 11 196 202 198 91 235 256 242"
+		)
+		
+		local pd=neon
+		read -r -a palette <<< "${p[$pd]}"
+    local text="${1:-}"
+    local style=""
+
+    # ตัวแรกเป็น style ถ้าตรงแพทเทิร์น b/d/i/u (แบบเดียวกับ rc)
+    if [[ -z "$1" ]] || [[ "$1" =~ ^[bdiu]{1,4}$ ]]; then
+        style="$1"
+        shift 1
+        text="${1:-}"
+    fi
+
+    local length="${#text}"
+    #local palette="("$palette")"
+    local palette_size="${#palette[@]}"
+    local result=""
+
+    # สร้าง style prefix (b/d/i/u → escape)
+    local st=""
+    for (( i=0; i<${#style}; i++ )); do
+        local char="${style:$i:1}"
+        case "$char" in
+            b) st+="$(_b)" ;; d) st+="$(_d)" ;;
+            i) st+="$(_i)" ;; u) st+="$(_u)" ;;
+        esac
+    done
+
+    # ต่อสีรุ้งทีละตัวอักษร (style ติดหน้าแต่ละตัว — กัน reset ระหว่างทาง)
+    for (( i=0; i<length; i++ )); do
+        local char="${text:$i:1}"
+        local color_code="${palette[$(( i % palette_size ))]}"
+        result+="${st}$(_c "$color_code")${char}"
+    done
+
+
+
+
+    # คืนค่าสีเดิม (\033[0m) ตบท้าย แล้วพ่นทีเดียวทั้งประโยค
+    echo -e "${result}$(_r)"
+}
+mcbg(){
+				# -- bg
+		declare -A jk=(  
+				[default_bg]="196 208 226 46 51 21 129"
+				[white_bg]="236 236 237 238 239 240 241 241 242 243 244 245 246 247 252 254 255"
+				[neon_bg]="9 10 27 11 196 202 198 91 235 256 242"
+		)
+		
+		local bg=default_bg
+		while (( $# > 0 )); do
+			case "$1" in
+				-d|--default) bg=default_bg; shift ;;
+				-w|--white)   bg=white_bg; shift   ;;
+				-n|--neon)		bg=neon_bg; shift    ;;
+				*)  break ;;
+			esac
+		done
+		
+		local text="${1:-}"
+		
+		read -r -a palette <<< "${jk[$bg]}"
+    local length="${#text}"
+    #local palette="("$palette")"
+    local palette_size="${#palette[@]}"
+    local result=""	
+		
+		
+				
+    for (( i=0; i<length; i++ )); do
+        local char="${text:$i:1}"
+        local color_code="${palette[$(( i % palette_size ))]}"
+        result+="$(_bg "$color_code")${char}$(_rbg)"
+				
+    done
+		echo -e "${result}$(_r)"
+}
