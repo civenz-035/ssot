@@ -261,7 +261,8 @@ ssot_load ${LOAD_LIST:-}
   	  esac
     unset LOAD_LIST
     unset AI_PROFILE
-		auto_start_ssh
+	auto_start_ssh
+    crlf
 
  } >/dev/null 2>&1
 
