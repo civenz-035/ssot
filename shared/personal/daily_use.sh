@@ -283,7 +283,24 @@ alias gu='multi_git_manager'
 
 quick_git_workflow(){
 	local msg="$*"
-		gt sync all --add -m ${msg:-"quick update of all projects"}
+    local flag=""
+    if [[ "$1" == -* ]]; then
+        while [[ "$1" == -* ]]; do
+            case "$1" in
+                -e|--exec) flag=1 ; shift ;;
+                -m|--msg) msg="$2";
+                    gt sync all --add -m "${msg:-"quick update of all projects"}" &&
+                    shift 2 ;;
+                *) break ;;
+            esac
+        done
+    else
+        gt sync all --add -m "${msg:-"quick update of all projects"}"
+    fi
+
+    if [[ -n "$flag" ]]; then
+        epp
+    fi
 }
 alias guall='quick_git_workflow'
 git_note(){
