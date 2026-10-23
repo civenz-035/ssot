@@ -26,7 +26,7 @@ n_(){
     banner+="$(cn 250 d "Current OS Kernel Version") : $(cn lcr '' "$(uname -r)")\n"
     banner+="${border}\n"
 
-    printf "%b\n" "${banner}"
+    printf "%b\n" "$(cbg 232 "${banner}")"
 }
 
 # ============================================================

@@ -13,7 +13,7 @@ e2f $JOE
 # done	 
 
 
-declare -A palettes=(
+declare -A p=(
 	[default]="196 208 226 46 51 21 129"
 	[white]="236 236 237 238 239 240 241 241 242 243 244 245 246 247 252 254 255"
 	[neon]="9 10 27 11 196 202 198 91 235 256 242"
@@ -21,10 +21,10 @@ declare -A palettes=(
 
 
 
-pd=white
-printf '%s\n' "${palettes[$pd]}"
+pd=neon
+printf '%s\n' "${p[$pd]}"
 
-read -r -a palette <<< "${palettes[$pd]}"
+read -r -a palette <<< "${p[$pd]}"
 printf '%s\n' "${palette[@]}"
 
 
