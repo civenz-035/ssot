@@ -534,3 +534,8 @@ get_path() {
 alias gp='get_path'
 
 
+msyn_(){
+	local src="win:$hpc/main_synce"
+	local tar="tm:$htm"
+	xfm pull $src $tar
+}
