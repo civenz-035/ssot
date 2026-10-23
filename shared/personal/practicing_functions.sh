@@ -472,11 +472,14 @@ EOF
 }
 
 perm(){
+
     local target="${1:-$(cb_read)}"
     local perm="${2:-+x}"
 		
 		if [[ -f "$target" ]]; then
-    	chmod "$perm" "$target" && c 10 bi "ให้สิทธ์ $perm สำเร็จ";c 45 b "$(basename "$target")  ";cn 10 bi "เรียบร้อย" 
+		
+    	chmod "$perm" "$target" && c 10 bi "ให้สิทธ์ $perm สำเร็จ";c 45 b "$(basename "$target")  ";cn 10 bi "เรียบร้อย"
+			
 		fi	
 }
 
