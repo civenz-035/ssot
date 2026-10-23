@@ -282,26 +282,74 @@ multi_git_manager() {
 alias gu='multi_git_manager'
 
 quick_git_workflow(){
-	local msg="$*"
     local flag=""
-    if [[ "$1" == -* ]]; then
-        while [[ "$1" == -* ]]; do
-            case "$1" in
-                -e|--exec) flag=1 ; shift ;;
-                -m|--msg) msg="$2";
-                    gt sync all --add -m "${msg:-"quick update of all projects"}" &&
-                    shift 2 ;;
-                *) break ;;
-            esac
-        done
-    fi
-    gt sync all --add -m "quick update of all projects"
+    local msg="quick update of all projects"
 
+    while [[ "$1" == -* ]]; do
+        case "$1" in
+            --exec)
+                flag=1
+                shift
+                ;;
+            --msg)
+                if [[ -n "$2" && "$2" != -* ]]; then
+                    msg="$2"
+                    shift 2
+                else
+                    echo "Error: --msg requires an argument." >&2
+                    return 1
+                fi
+                ;;
+            --) # รองรับกรณีส่ง -- เพื่อจบการรับ Argument
+                shift
+                break
+                ;;
+            -[a-zA-Z]*) # รองรับ Short flag ทั้งแบบเดี่ยวและแบบรวมกัน เช่น -e, -m, -em, -me
+                local arg="${1#-}" # ตัดขีดนำหน้าออก (เช่น "em" หรือ "me")
+                shift
+                
+                local i=0
+                while (( i < ${#arg} )); do
+                    local char="${arg:i:1}"
+                    case "$char" in
+                        e)
+                            flag=1
+                            ;;
+                        m)
+                            # ตรวจสอบว่ามี Argument ถัดไปสำหรับ -m หรือไม่
+                            if [[ -n "$1" && "$1" != -* ]]; then
+                                msg="$1"
+                                shift
+                            else
+                                echo "Error: -m requires an argument." >&2
+                                return 1
+                            fi
+                            ;;
+                        *)
+                            echo "Unknown flag: -$char" >&2
+                            return 1
+                            ;;
+                    esac
+                    ((i++))
+                done
+                ;;
+            *)
+                echo "Unknown argument: $1" >&2
+                return 1
+                ;;
+        esac
+    done
+
+    # รันคำสั่งหลักรอบเดียวจบ
+    gt sync all --add -m "$msg"
+
+    # ถ้ามี Flag -e หรือ --exec ให้รัน epp ต่อ
     if [[ -n "$flag" ]]; then
         epp
     fi
 }
 alias gg='quick_git_workflow'
+
 git_note(){
 
     file_path="$hpc/Desktop/main_sync/git knowledge/Git basic.md"
