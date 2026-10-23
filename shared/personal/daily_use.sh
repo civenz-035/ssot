@@ -294,15 +294,14 @@ quick_git_workflow(){
                 *) break ;;
             esac
         done
-    else
-        gt sync all --add -m "${msg:-"quick update of all projects"}"
     fi
+    gt sync all --add -m "quick update of all projects"
 
     if [[ -n "$flag" ]]; then
         epp
     fi
 }
-alias guall='quick_git_workflow'
+alias gg='quick_git_workflow'
 git_note(){
 
     file_path="$hpc/Desktop/main_sync/git knowledge/Git basic.md"
