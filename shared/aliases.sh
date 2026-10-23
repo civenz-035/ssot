@@ -159,3 +159,5 @@ alias msp="bash $SSOT/tools/mesh-sync.sh pull"
 alias mso="bash $SSOT/tools/mesh-sync.sh push"
 alias msfp="bash $SSOT/tools/mesh-sync.sh fanpull"
 alias msfq="bash $SSOT/tools/mesh-sync.sh fanpush"
+
+export spacing='<  >   copy  spacing insind <>'
