@@ -76,6 +76,7 @@ render_border_top() {
         local plain; plain="$(_blk_repeat_pattern "$ch" "$w")"
         border="$(_apply_cn_to "${_THEME[top_border_c]}" "$plain")"
     fi
+    border=$(cbg 232 "${border}")
     echo -e "${pad}${border}"
 }
 # ============================================================
@@ -110,6 +111,7 @@ render_border_bot() {
         local plain; plain="$(_blk_repeat_pattern "$ch" "$w")"
         border="$(_apply_cn_to "${_THEME[bot_border_c]}" "$plain")"
     fi
+    border=$(cbg 232 "${border}")
     echo -e "${pad}${border}"
 }
 
@@ -146,8 +148,8 @@ render_mid() {
     else
         mid_str="$(_apply_cn_to "${_THEME[mid_line_c]}" "$mid_str")"
     fi
-
-    echo -e "${pad}${hm_l}${mid_str}${hm_r}"
+    _apply_="$(cbg 232 "${hm_l}${mid_str}${hm_r}")"
+    echo -e "${pad}${_apply_}"
 }
 
 # ============================================================
@@ -221,10 +223,9 @@ render_row() {
 
     _pvar _tmp '%*s%*s%s%*s' "$value_pad" '' "$r_left" '' "$emr" "$r_right" ''
     row+="$_tmp"
-    row_bg=$(cbg 232 "$row")
+    row_bg=$(cbg 232 "${hr_l}${row}${hr_r}")
 
-    echo -e "${pad}${hr_l}${row_bg}${hr_r}"
-    
+    echo -e "${pad}${row_bg}"
 }
 
 # ============================================================

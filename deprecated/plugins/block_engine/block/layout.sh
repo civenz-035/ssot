@@ -96,9 +96,13 @@ _blk_scan() {
 
     # Batch visual-width (emoji-aware) — python3 เรียกครั้งเดียวแทนทุกเซลล์
     while IFS= read -r w; do
+        w="${w//$'\r'/}"
+        [[ -z "$w" ]] && continue
         (( w > max_l )) && max_l=$w
     done < <(_blk_str_widths "${labels[@]}")
     while IFS= read -r w; do
+        w="${w//$'\r'/}"
+        [[ -z "$w" ]] && continue
         (( w > max_v )) && max_v=$w
     done < <(_blk_str_widths "${values[@]}")
 

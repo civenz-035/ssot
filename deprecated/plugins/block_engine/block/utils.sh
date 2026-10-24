@@ -132,8 +132,14 @@ _blk_str_width() {
     [[ -z "$str" ]] && { echo 0; return 0; }
 
     if command -v python3 &>/dev/null; then
-        python3 - "$str" 2>/dev/null <<'PYEOF' || printf '%s' "${#str}"
+        local _w
+        _w=$(python3 - "$str" 2>/dev/null <<'PYEOF' || printf '%s' "${#str}"
 import sys, re, unicodedata
+if hasattr(sys.stdout, 'reconfigure'):
+    try:
+        sys.stdout.reconfigure(newline='\n')
+    except Exception:
+        pass
 s = sys.argv[1]
 # strip ANSI CSI escape sequences — both real ESC (\x1b) and literal "\e"
 # (theme cn codes are stored as literal \e[...m and resolved by echo -e)
@@ -187,6 +193,8 @@ while i < n:
     i += 1
 print(max(w, 0))
 PYEOF
+        )
+        printf '%s' "${_w//$'\r'/}"
     else
         # --- tier 3: no python3 — rough codepoint count ---
         local plain
@@ -203,8 +211,13 @@ PYEOF
 # ============================================================
 _blk_str_widths() {
     if command -v python3 &>/dev/null; then
-        python3 - "$@" 2>/dev/null <<'PYEOF'
+        python3 - "$@" 2>/dev/null <<'PYEOF' | tr -d '\r'
 import sys, re, unicodedata
+if hasattr(sys.stdout, 'reconfigure'):
+    try:
+        sys.stdout.reconfigure(newline='\n')
+    except Exception:
+        pass
 
 def wc(s):
     s = re.sub(r'(?:\x1b|\\e)\[[0-?]*[ -/]*[@-~]', '', s)
