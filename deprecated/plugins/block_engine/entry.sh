@@ -48,7 +48,7 @@ _blk_source_modules() {
         "${_D}/status.sh"
     )
     _check_ -o -f files   # pass array name by ref — _check() unpacks it
-		_C -f "_style_default"
+		_C -q -f "_style_default"
 }
 _blk_source_modules
 
