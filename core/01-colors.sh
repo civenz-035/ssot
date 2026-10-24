@@ -1044,26 +1044,34 @@ print(f"{bc}╰{div}╯{rst}")
 
 jmc() {
 
-		local declare -A p=(
+		declare -A p=(
 				[default]="196 208 226 46 51 21 129"
 				[white]="236 236 237 238 239 240 241 241 242 243 244 245 246 247 252 254 255"
 				[neon]="9 10 27 11 196 202 198 91 235 256 242"
 		)
 		
-		local pd=neon
+		local pd=default
+		while (( $# > 0 )); do
+			case "$1" in
+				-d|--default) pd=default; shift ;;
+				-w|--white)   pd=white; shift   ;;
+				-n|--neon)		pd=neon; shift    ;;
+				*)  break ;;
+			esac
+		done
 		read -r -a palette <<< "${p[$pd]}"
-    local text="${1:-}"
+    local text="${*:-}"
     local style=""
 
     # ตัวแรกเป็น style ถ้าตรงแพทเทิร์น b/d/i/u (แบบเดียวกับ rc)
     if [[ -z "$1" ]] || [[ "$1" =~ ^[bdiu]{1,4}$ ]]; then
         style="$1"
         shift 1
-        text="${1:-}"
     fi
 
+    local text="$*"
+
     local length="${#text}"
-    #local palette="("$palette")"
     local palette_size="${#palette[@]}"
     local result=""
 
@@ -1108,11 +1116,10 @@ mcbg(){
 			esac
 		done
 		
-		local text="${1:-}"
+		local text="$*"
 		
 		read -r -a palette <<< "${jk[$bg]}"
     local length="${#text}"
-    #local palette="("$palette")"
     local palette_size="${#palette[@]}"
     local result=""	
 		
@@ -1125,4 +1132,9 @@ mcbg(){
 				
     done
 		echo -e "${result}$(_r)"
+}
+paint(){
+
+    
+
 }
