@@ -1,7 +1,8 @@
 #!/bin/bash
 
 n_(){
-		_check_ -f draw_
+    _check_ -q -f _check_
+    _check_ -q -f draw_
     local border_len=83 term_w
     term_w=$(tput cols)
     ((border_len > term_w)) && border_len=$term_w

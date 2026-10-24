@@ -2,7 +2,7 @@
 # ------------------------------------------------------------
 # File: mc_test.sh
 # ------------------------------------------------------------
-source /home/joez/ssot/core/01-colors.sh
+source "$ssot/core/01-colors.sh"
 # โทนสีเดี่ยวไล่ระดับ
 mc_test(){
 
@@ -31,13 +31,14 @@ mc -h
 insert_bg(){
     local c_=$1
     local text="$2"
-    ibg="$(_bg "$c_") "${text}" "$(_rbg)"
+    ibg="$(_bg "$c_") "${text}" "$(_rbg)""
     echo -e "${ibg}"
 }
 
-insert_bg 232 "$( mc -w " hello world ")"
+insert_bg "232" "$( mc -w " hello world ")"
 
-mc_t="$(mc_test)
-insert_bg 232 "$mc_t"
+mc_t="$(mc_test)"
+
+insert_bg "232" "$mc_t"
 
 
