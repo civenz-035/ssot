@@ -249,5 +249,94 @@ winrate_cal(){
     box_card --border 240 "${card[@]}"
 }
 
+move_() {
+    local src="${1:-$(_ css)}"
+    local dest="${2:-$(_ bss)}"
+    local count=$(find "$src" -type f \( \
+        -iname "* *.mp4" -o \
+        -iname "* *.3gp" -o \
+        -iname "* *.flv" -o \
+        -iname "* *.avi" -o \
+        -iname "* *.mov" -o \
+        -iname "* *.mkv" -o \
+        -iname "* *.wmv" -o \
+        -iname "* *.FLV" -o \
+        -iname "* *.AVI" -o \
+        -iname "* *.MOV" -o \
+        -iname "* *.MKV" -o \
+        -iname "* *.WMV" -o \
+        -iname "* *_tmp" -o \
+        -iname "* *_TMP" -o \
+        -iname "* *_Tmp" -o \
+        -iname "*.PNG" -o \
+        -iname "*.png" \
+    \) | wc -l)
+
+    # 1. แปลง Path รูปแบบ Windows (F:\...) ให้เป็น WSL (/mnt/f/...) อัตโนมัติ
+    if [[ "$src" =~ ^[a-zA-Z]:\\ ]]; then
+        src="$(wslpath -u "$src" 2>/dev/null || echo "$src")"
+    fi
+
+    if [[ "$dest" =~ ^[a-zA-Z]:\\ ]]; then
+        dest="$(wslpath -u "$dest" 2>/dev/null || echo "$dest")"
+    fi
+
+    # 2. ตรวจสอบโฟลเดอร์ต้นทาง
+    if [ ! -d "$src" ]; then
+        cn r b "Error: Directory '$src' does not exist."
+        return 1
+    fi
+
+    # 3. เคลียร์ช่องว่างในชื่อไฟล์ก่อน
+    re_name "$src"
+
+    # 4. ค้นหาไฟล์วิดีโอทั้งหมด
+    local files=()
+
+    mapfile -t files < <(find "$src" -type f \( \
+        -iname "*.mp4" -o \
+        -iname "*.3gp" -o \
+        -iname "*.flv" -o \
+        -iname "*.avi" -o \
+        -iname "*.mov" -o \
+        -iname "*.mkv" -o \
+        -iname "*.wmv" -o \
+        -iname "*.FLV" -o \
+        -iname "*.AVI" -o \
+        -iname "*.MOV" -o \
+        -iname "*.MKV" -o \
+        -iname "*.WMV" -o \
+        -iname "*_tmp" -o \
+        -iname "*_TMP" -o \
+        -iname "*_Tmp" -o \
+        -iname "*_*" -o \
+        -iname "*.png" -o \
+        -iname "*.PNG" \
+    \))
+
+    # 5. สร้างโฟลเดอร์ปลายทางถ้ายังไม่มี
+    if [ ! -d "$dest" ]; then
+        mkdir -p "$dest"
+    fi
+
+    # 6. เช็กว่าเจอไฟล์หรือไม่
+    if [ "${#files[@]}" -eq 0 ]; then
+        echo "No files found to move."
+        return 0
+    fi
+
+    # 7. ย้ายไฟล์
+    for f in "${files[@]}"; do
+        [ -f "$f" ] || continue
+
+        local file_name
+        file_name="$(basename "$f")"
+
+        mv "$f" "$dest/$file_name" \
+            && cn 10 b "done moved $file_name" \
+            || cn r b "cant moved $file_name"
+    done
+    c gr "" "ย้ายไฟล์แล้วทั้งหมด" ; c 10 b "$count" ; cn gr "" "files"
+}
 
 

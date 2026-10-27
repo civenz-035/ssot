@@ -20,10 +20,10 @@ pgb(){
 
 alias ssh_ad="$SSOT/bootstrap/script/ssh_audit.sh"
 
-bk_clean(){
+find_(){
 		local tar=${1:-}
 		local files f 
-		files=$(find "$tar" -type f -iname "*bak*" | sort)
+		files=$(find "$tar" -type f -iname "*$2*" | sort)
 		for f in ${files[@]}; do
 			echo $f
 		done	

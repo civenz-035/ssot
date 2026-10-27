@@ -118,95 +118,7 @@ mv_(){
    done 
   c gr "" "ย้ายไฟล์แล้วทั้งหมด" ; c 10 b "$count" ; cn gr "" "files"
 }
-move_() {
-    local src="${1:-$(_ css)}"
-    local dest="${2:-$(_ bss)}"
-    local count=$(find "$src" -type f \( \
-        -iname "* *.mp4" -o \
-        -iname "* *.3gp" -o \
-        -iname "* *.flv" -o \
-        -iname "* *.avi" -o \
-        -iname "* *.mov" -o \
-        -iname "* *.mkv" -o \
-        -iname "* *.wmv" -o \
-        -iname "* *.FLV" -o \
-        -iname "* *.AVI" -o \
-        -iname "* *.MOV" -o \
-        -iname "* *.MKV" -o \
-        -iname "* *.WMV" -o \
-        -iname "* *_tmp" -o \
-        -iname "* *_TMP" -o \
-        -iname "* *_Tmp" -o \
-        -iname "*.PNG" -o \
-        -iname "*.png" \
-    \) | wc -l)
 
-    # 1. แปลง Path รูปแบบ Windows (F:\...) ให้เป็น WSL (/mnt/f/...) อัตโนมัติ
-    if [[ "$src" =~ ^[a-zA-Z]:\\ ]]; then
-        src="$(wslpath -u "$src" 2>/dev/null || echo "$src")"
-    fi
-
-    if [[ "$dest" =~ ^[a-zA-Z]:\\ ]]; then
-        dest="$(wslpath -u "$dest" 2>/dev/null || echo "$dest")"
-    fi
-
-    # 2. ตรวจสอบโฟลเดอร์ต้นทาง
-    if [ ! -d "$src" ]; then
-        cn r b "Error: Directory '$src' does not exist."
-        return 1
-    fi
-
-    # 3. เคลียร์ช่องว่างในชื่อไฟล์ก่อน
-    re_name "$src"
-
-    # 4. ค้นหาไฟล์วิดีโอทั้งหมด
-    local files=()
-
-    mapfile -t files < <(find "$src" -type f \( \
-        -iname "*.mp4" -o \
-        -iname "*.3gp" -o \
-        -iname "*.flv" -o \
-        -iname "*.avi" -o \
-        -iname "*.mov" -o \
-        -iname "*.mkv" -o \
-        -iname "*.wmv" -o \
-        -iname "*.FLV" -o \
-        -iname "*.AVI" -o \
-        -iname "*.MOV" -o \
-        -iname "*.MKV" -o \
-        -iname "*.WMV" -o \
-        -iname "*_tmp" -o \
-        -iname "*_TMP" -o \
-        -iname "*_Tmp" -o \
-        -iname "*_*" -o \
-        -iname "*.png" -o \
-        -iname "*.PNG" \
-    \))
-
-    # 5. สร้างโฟลเดอร์ปลายทางถ้ายังไม่มี
-    if [ ! -d "$dest" ]; then
-        mkdir -p "$dest"
-    fi
-
-    # 6. เช็กว่าเจอไฟล์หรือไม่
-    if [ "${#files[@]}" -eq 0 ]; then
-        echo "No files found to move."
-        return 0
-    fi
-
-    # 7. ย้ายไฟล์
-    for f in "${files[@]}"; do
-        [ -f "$f" ] || continue
-
-        local file_name
-        file_name="$(basename "$f")"
-
-        mv "$f" "$dest/$file_name" \
-            && cn 10 b "done moved $file_name" \
-            || cn r b "cant moved $file_name"
-    done
-    c gr "" "ย้ายไฟล์แล้วทั้งหมด" ; c 10 b "$count" ; cn gr "" "files"
-}
 
 #-- version: Syncthing conflict resolver — newer mtime wins (พี่โจคนเดียวที่แก้)
 #-- ใช้งาน: del_c [dir]  (default = $SSOT)
@@ -360,44 +272,6 @@ wa() {
 }
 
 
-# g — quick git shortcut (พี่โจใช้บ่อย)
-#   g                  → if dirty: commit+(optional msg)+pull --rebase+push, else just pull --rebase+push
-#   g "<msg>"          → commit -m "<msg>" + pull --rebase + push
-#   g s | status       → git status
-#   g c "<msg>" | commit "<msg>"  → commit only
-#   g a | add          → git add -A
-#   g p | push         → git push
-#   g pl | pull        → git pull --rebase
-#   g pln | pulln      → git pull --no-rebase
-#   g d | diff         → git diff --stat
-#   g l | log          → git log --oneline -10
-#   g <other>          → pass through to git
-#
-# Safety: ถ้า no-arg + dirty working tree → ถามก่อน commit
-g() {
-    local repo="${SSOT:-$HOME/ssot}"
-    [[ -d "$repo" ]] || { cn 196 b "✗ repo not found: $repo"; return 1; }
-    cd "$repo" || return 1
-
-    # ถ้าไม่มี args → commit+push (ถ้ามี change) หรือ push only
-    if (( $# == 0 )); then
-        if ! git diff --quiet HEAD 2>/dev/null || [[ -n "$(git ls-files --others --exclude-standard 2>/dev/null)" ]]; then
-            c 11 b "? Working tree dirty — commit with $(c 220 b 'date')? [y/N] "
-            local ans; read -r ans
-            [[ "$ans" =~ ^[Yy]$ ]] || { cn 220 b "→ cancelled"; return 0; }
-            git add -A && git commit -m "$(date '+%Y-%m-%d %H:%M:%S')"
-        fi
-        git_ push
-        return $?
-    elif (( $# == 1 )); then
-        git_ all "$1"
-    else
-    # มี args → ส่งต่อไป git_ (ซึ่งรู้จัก s/c/a/all/push/pull ฯลฯ)
-         git_ "$@"       
-    fi
-
- 
-}
 
 
 replace_w2() {
