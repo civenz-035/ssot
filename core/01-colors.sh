@@ -1135,6 +1135,42 @@ mcbg(){
 }
 paint(){
 
+    local flag=""
+    local text=""
+    local style=""
     
+    while (( $# > 0 )); do
+        case "$1" in
+            -t|--text) 
+                style="$2"
+                text="$3"
+                jmc "$style" "$text"
+                shift 3
+                ;;
+            -b|--bg) 
+                flag="$2"
+                text="$3"
+                mcbg "$flag" "$text"
+                shift 3
+                ;;
+            -tb|--textbg) 
+                flag="$2"
+                style="$3"
+                text="$4"
+                tx="$(jmc "$style" "$text")"
+                mcbg "$flag" "$tx"
+                shift 4
+                ;;
+            -h|--help)
+                echo "Usage: paint [options] <text>"
+                echo "Options:"
+                echo "  -t, --text <text>   Text to paint"
+                echo "  -b, --bg <color>    Background color"
+                exit 0
+                ;;
+            *)  break ;;
+        esac
+    done
+
 
 }
