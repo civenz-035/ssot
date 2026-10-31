@@ -539,3 +539,20 @@ msyn_(){
 	local tar="tm:$htm"
 	xfm pull $src $tar
 }
+
+gbash_link(){
+    local old_bashrc="$hpc/.bashrc"
+    local old_zsh="$hpc/.zshrc"
+    local ssot_bashrc="$hpc/ssot/profiles/git-bash/.bashrc"
+
+    if [[ -f "$old_bashrc" || -f "$old_zsh" ]]; then
+        rm -f "$old_bashrc" && echo "Removed existing .bashrc"
+        rm -f "$old_zsh" && echo "Removed existing .zshrc"
+    fi
+    ln -s "$ssot_bashrc" "$old_bashrc" && echo "Linked $ssot_bashrc to $old_bashrc" &&
+    readlink "$old_bashrc" && echo "Linked $ssot_bashrc to $old_zsh" 
+    
+
+       
+
+}
