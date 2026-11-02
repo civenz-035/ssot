@@ -556,3 +556,12 @@ gbash_link(){
        
 
 }
+
+sound_cut(){
+
+    local out_dir="${hpc}/Desktop/sound"
+    local input=${1:-}
+    local output_name=${2:-}
+
+    ffmpeg -i "${input}" -vn -ar 44100 -ac 2 -b:a 192k "${out_dir}/${output_name}.mp3"
+}
