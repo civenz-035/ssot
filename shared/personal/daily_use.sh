@@ -276,8 +276,6 @@ multi_git_manager() {
         shift "$shift_count"
     done
 }
-
-
 # ALIASES
 alias gu='multi_git_manager'
 
@@ -359,7 +357,7 @@ git_note(){
 
 mth_update(){
     bash  $sim/update.sh
-}
+ }
 
 repo_() {
     local hpc="${hpc:-}"
@@ -405,7 +403,7 @@ repo_() {
 
     # จุดนี้คือการส่ง "เฉพาะ Path" ออกทาง Stdout ให้ตัวแปรข้างนอกมารับ
     printf '%s\n' "${collected_paths[@]}"
-}
+ }
 
 sync_repo(){
 
@@ -413,7 +411,7 @@ sync_repo(){
     for proj in "${my_projects[@]}"; do
         cp -r "$proj" "$2" && echo "copied: $(cn lg b "$proj to $2")"
     done
-}
+ }
 
 # -- echo short cut
 
@@ -517,7 +515,7 @@ e2f() {
             cat
         fi
     fi
-}
+ }
 
 # -- get file path of function --
 get_path() {
@@ -530,15 +528,13 @@ get_path() {
     local output=$(printf "%b" "$path")
     cb_copy "$output"
     echo "$output"
-}
+ }
 alias gp='get_path'
-
-
 msyn_(){
 	local src="win:$hpc/main_synce"
 	local tar="tm:$htm"
 	xfm pull $src $tar
-}
+ }
 
 gbash_link(){
     local old_bashrc="$hpc/.bashrc"
@@ -555,7 +551,7 @@ gbash_link(){
 
        
 
-}
+ }
 
 sound_cut(){
 
@@ -564,4 +560,4 @@ sound_cut(){
     local output_name=${2:-}
 
     ffmpeg -i "${input}" -vn -ar 44100 -ac 2 -b:a 192k "${out_dir}/${output_name}.mp3"
-}
+ }
