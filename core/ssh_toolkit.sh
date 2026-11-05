@@ -87,7 +87,16 @@ cb_copy() {
 
     # 1. WSL / Windows native clip (Fastest for WSL)
     if command -v clip.exe &>/dev/null; then
-        printf '%s' "$input" | clip.exe 2>/dev/null && return 0
+        if printf '%s' "$input" | clip.exe 2>/dev/null; then
+            return 0
+        fi
+    fi
+
+    # WSL fallback via /init if binfmt_misc has issues
+    if [[ -x /init && -f "/mnt/c/Windows/System32/clip.exe" ]]; then
+        if printf '%s' "$input" | /init "/mnt/c/Windows/System32/clip.exe" 2>/dev/null; then
+            return 0
+        fi
     fi
 
     # 2. Termux (Android / MuMu)
@@ -119,12 +128,34 @@ cb_copy() {
         printf '%s' "$input" | pbcopy 2>/dev/null && return 0
     fi
 
-    # 6. PowerShell fallback
-    if command -v powershell.exe &>/dev/null; then
+    # 6. PowerShell / pwsh fallback
+    local _ps=""
+    if command -v pwsh.exe &>/dev/null; then
+        _ps="pwsh.exe"
+    elif command -v powershell.exe &>/dev/null; then
+        _ps="powershell.exe"
+    fi
+    if [[ -n "$_ps" ]]; then
         printf '%s' "$input" |
-            powershell.exe -NoProfile -Command \
+            "$_ps" -NoLogo -NoProfile -NonInteractive -Command \
             '$input = [Console]::In.ReadToEnd(); Set-Clipboard -Value $input' \
             2>/dev/null && return 0
+    fi
+
+    # 7. WSL /init fallback for PowerShell
+    if [[ -x /init ]]; then
+        local _win_ps_list=(
+            "/mnt/c/Program Files/PowerShell/7/pwsh.exe"
+            "/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe"
+        )
+        for _wps in "${_win_ps_list[@]}"; do
+            if [[ -f "$_wps" ]]; then
+                printf '%s' "$input" |
+                    /init "$_wps" -NoLogo -NoProfile -NonInteractive -Command \
+                    '$input = [Console]::In.ReadToEnd(); Set-Clipboard -Value $input' \
+                    2>/dev/null && return 0
+            fi
+        done
     fi
 
     return 1
@@ -145,24 +176,54 @@ cb_read() {
 
     # 2. Wayland (Linux)
     if [[ -n "${WAYLAND_DISPLAY:-}" ]] && command -v wl-paste &>/dev/null; then
-        wl-paste --no-newline 2>/dev/null && return 0
+        local _wl_out
+        _wl_out="$(wl-paste --no-newline 2>/dev/null)"
+        if [[ -n "$_wl_out" ]]; then
+            printf '%s\n' "$_wl_out"
+            return 0
+        fi
     fi
 
-    # 3. WSL / Windows (PowerShell)
-    if command -v powershell.exe &>/dev/null; then
-        powershell.exe -NoProfile -Command "Get-Clipboard" 2>/dev/null |
-            tr -d '\r'
-        return 0
+    # 3. WSL / Windows (pwsh / powershell)
+    local _ps_candidates=()
+    command -v pwsh.exe &>/dev/null && _ps_candidates+=("pwsh.exe")
+    command -v powershell.exe &>/dev/null && _ps_candidates+=("powershell.exe")
+
+    for _ps in "${_ps_candidates[@]}"; do
+        local _val
+        _val="$("$_ps" -NoLogo -NoProfile -NonInteractive -Command "Get-Clipboard" 2>/dev/null | tr -d '\r')"
+        if [[ -n "$_val" ]]; then
+            printf '%s\n' "$_val"
+            return 0
+        fi
+    done
+
+    # 4. WSL /init fallback (recovers if binfmt_misc WSLInterop is disabled or failing)
+    if [[ -x /init ]]; then
+        local _win_ps_paths=(
+            "/mnt/c/Program Files/PowerShell/7/pwsh.exe"
+            "/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe"
+        )
+        for _pw in "${_win_ps_paths[@]}"; do
+            if [[ -f "$_pw" ]]; then
+                local _val
+                _val="$(/init "$_pw" -NoLogo -NoProfile -NonInteractive -Command "Get-Clipboard" 2>/dev/null | tr -d '\r')"
+                if [[ -n "$_val" ]]; then
+                    printf '%s\n' "$_val"
+                    return 0
+                fi
+            fi
+        done
     fi
 
-    # 4. X11 (Linux)
+    # 5. X11 (Linux)
     if command -v xclip &>/dev/null; then
         xclip -selection clipboard -o 2>/dev/null && return 0
     elif command -v xsel &>/dev/null; then
         xsel --clipboard --output 2>/dev/null && return 0
     fi
 
-    # 5. macOS
+    # 6. macOS
     if command -v pbpaste &>/dev/null; then
         pbpaste 2>/dev/null && return 0
     fi

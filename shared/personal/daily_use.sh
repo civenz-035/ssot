@@ -553,11 +553,21 @@ gbash_link(){
 
  }
 
-sound_cut(){
+sound_cut_(){
 
     local out_dir="${hpc}/Desktop/sound"
     local input=${1:-}
-    local output_name=${2:-}
+    local input_name=$(basename "$input")
+    local output_name=${2:-$input_name}
 
     ffmpeg -i "${input}" -vn -ar 44100 -ac 2 -b:a 192k "${out_dir}/${output_name}.mp3"
+ }
+
+ sc_(){
+    local f=("$(find "/mnt/c/Users/User/Desktop/screenshots/screen/" -iname "*.mp4")")
+    for f_ in "${f[@]}"; do
+        echo "$f_"\n
+        sound_cut "$f_"
+    done    
+
  }

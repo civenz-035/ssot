@@ -30,8 +30,10 @@ pathx() {
         # Read from Windows clipboard
         if command -v cb_read >/dev/null 2>&1; then
             input_path="$(cb_read)"
+        elif command -v pwsh.exe >/dev/null 2>&1; then
+            input_path="$(pwsh.exe -NoLogo -NoProfile -NonInteractive -Command "Get-Clipboard" 2>/dev/null | tr -d '\r')"
         elif command -v powershell.exe >/dev/null 2>&1; then
-            input_path="$(powershell.exe -NoProfile -Command "Get-Clipboard" 2>/dev/null | tr -d '\r')"
+            input_path="$(powershell.exe -NoLogo -NoProfile -NonInteractive -Command "Get-Clipboard" 2>/dev/null | tr -d '\r')"
         fi
     fi
 
@@ -78,8 +80,10 @@ pathx() {
     # Copy to clipboard
     if command -v cb_copy >/dev/null 2>&1; then
         cb_copy "$output_path" >/dev/null 2>&1
+    elif command -v clip.exe >/dev/null 2>&1; then
+        printf '%s' "$output_path" | clip.exe 2>/dev/null
     elif command -v powershell.exe >/dev/null 2>&1; then
-        powershell.exe -NoProfile -Command "Set-Clipboard -Value \"$output_path\"" 2>/dev/null
+        powershell.exe -NoLogo -NoProfile -NonInteractive -Command "Set-Clipboard -Value \"$output_path\"" 2>/dev/null
     fi
 }
 
@@ -105,7 +109,22 @@ p() {
   local raw converted drive rest distro
 
   # 1. Input: $1 หรือ clipboard
-  raw="${1:-$(cb_read 2>/dev/null)}"
+  raw="${1:-}"
+  if [[ -z "$raw" ]]; then
+    raw="$(cb_read 2>/dev/null)"
+  fi
+
+  # WSL fallback if cb_read was empty: direct PowerShell query
+  if [[ -z "$raw" && -x /init ]]; then
+    if command -v pwsh.exe >/dev/null 2>&1; then
+      raw="$(pwsh.exe -NoLogo -NoProfile -NonInteractive -Command "Get-Clipboard" 2>/dev/null)"
+    elif command -v powershell.exe >/dev/null 2>&1; then
+      raw="$(powershell.exe -NoLogo -NoProfile -NonInteractive -Command "Get-Clipboard" 2>/dev/null)"
+    fi
+  fi
+
+  # Clean up: grab first non-empty line
+  raw="$(printf '%s\n' "$raw" | sed '/^[[:space:]]*$/d' | head -n 1)"
 
   [[ -z "$raw" ]] && { echo "[p] No input." >&2; return 1; }
 
@@ -143,7 +162,7 @@ p() {
     fi
 
     case "${JOE_ENV:-WSL}" in
-      WSL)      converted="$rest" ;;
+      WSL|WSL2) converted="$rest" ;;
       GIT-BASH) converted="//wsl.localhost/${distro}${rest}" ;;
       WIN)      converted="\\\\wsl.localhost\\${distro}$(printf '%s' "$rest" | tr '/' '\\')" ;;
       *)        converted="$rest" ;;
@@ -164,7 +183,7 @@ p() {
     drive="$(printf '%s' "$drive" | tr '[:upper:]' '[:lower:]')"
 
     case "${JOE_ENV:-WSL}" in
-      WSL)      converted="/mnt/${drive}${rest}" ;;
+      WSL|WSL2) converted="/mnt/${drive}${rest}" ;;
       GIT-BASH) converted="/${drive}${rest}" ;;
       WIN)      converted="$(printf '%s' "$drive" | tr '[:lower:]' '[:upper:]'):$(printf '%s' "$rest" | tr '/' '\\')" ;;
       *)        converted="/mnt/${drive}${rest}" ;;
