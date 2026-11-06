@@ -1,6 +1,6 @@
 #!/bin/bash
 #-- file นี้ เป็น scripts สำหรับงาน clean
-array_excample(){
+find_array(){
     local s="${1:-$video_p}"
     local d="${2:-$bk_path}"
     local files=("${s}"/*.mp4)

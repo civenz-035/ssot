@@ -406,3 +406,18 @@ alias aucut="sound_cut"
 export capt="/mnt/c/Users/User/Videos/Captures"
 export scrn="/mnt/c/Users/User/Desktop/screenshots/screen"
 export sound="/mnt/c/Users/User/Desktop/sound/sound"
+
+vdo_to_mp3(){
+    local s="${1:-}"
+    local d="${2:-}"
+
+
+   mapfile -t files2 < <(find $s -name '*.mp4')
+        for f2 in ${files2[@]} ; do
+        aucut ${f2}
+        cn 198 b "$(basename ${f2})"
+        rm -f ${f2} && cn 
+   done
+
+
+}
