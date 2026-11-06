@@ -402,3 +402,7 @@ extract_audio() {
 }
 alias soundcut="sound_cut"
 alias aucut="sound_cut"
+
+export capt="/mnt/c/Users/User/Videos/Captures"
+export scrn="/mnt/c/Users/User/Desktop/screenshots/screen"
+export sound="/mnt/c/Users/User/Desktop/sound/sound"
