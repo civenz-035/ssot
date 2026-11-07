@@ -39,6 +39,7 @@ bbcalc() {
                  # เรียกใช้ slv พร้อม flag -q และกำหนดทศนิยม + โหมดปัดเศษได้แบบเดียวกับ mth()
                  current_bet=$(slv -q "basebet/bal=(m-1)/(m^n-1)" "bal=$cur_bal" "m=$mul" "n=$l_st" "$scale" d)
                  echo "$current_bet"
+       ;;
         *)
                  echo "$usage" 
                  return 0      
@@ -50,7 +51,7 @@ bbcalc() {
 bal=$1 
 loss_allowed=$2 
 multi=$3 
-basebet=$4
+basebet=$nextbet
 start_bal=$bal
 loss_streak=0
 lose_count=0
