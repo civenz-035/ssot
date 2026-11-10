@@ -90,3 +90,6 @@ export TERM=xterm-256color
 # Added by simulator install script
 [[ -f '/home/joez/simulator/lib/alias.sh' ]] && source '/home/joez/simulator/lib/alias.sh'
 
+
+# bash-colors
+source "/tmp/test-bash-colors/colors.sh"
