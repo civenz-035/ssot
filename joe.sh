@@ -134,6 +134,7 @@ ssot_load(){
         "$SSOT/core/profiles.sh"
        	"$SSOT/core/lazy-load_engine.sh"
 				"$SSOT/plugins/joe_theme/plugin.sh"
+				#"$SSOT/core/dist-tui.sh"
     )
 
     # 1. shared/functions (priority core tools & loader)

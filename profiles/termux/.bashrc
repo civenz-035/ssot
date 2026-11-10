@@ -113,3 +113,6 @@ export TERM=xterm-256color
 
 # opencode
 export PATH=/data/data/com.termux/files/home/.opencode/bin:$PATH
+
+# ez_colors
+source "/data/data/com.termux/files/home/.ez_colors/colors.sh"

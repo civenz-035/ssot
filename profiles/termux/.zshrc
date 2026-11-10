@@ -172,3 +172,6 @@ export GITSTATUS_ENABLE=0
 # maths-helper (mth, slv, calc, solve)
 [ -f "$HOME/.maths-helper/maths.sh" ] && source "$HOME/.maths-helper/maths.sh"
 [[ -f "$HOME/simulator/lib/alias.sh" ]] && source "$HOME/simulator/lib/alias.sh"
+
+# ez_colors
+source "/data/data/com.termux/files/home/.ez_colors/colors.sh"
