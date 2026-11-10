@@ -363,7 +363,7 @@ repo_() {
     local hpc="${hpc:-}"
     local hwsl="${HWSL:-${hwsl:-}}"
     local hwsl2="${HWSL2:-${hwsl2:-}}"   
-    local repo_names=("ssot" ".maths-helper" "simulator")
+    local repo_names=("ssot" ".maths-helper" "simulator" "colors_toolkit" "ez_colors")
     local HOME_PATH="$HOME"
     local collected_paths=()
 

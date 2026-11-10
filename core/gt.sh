@@ -25,6 +25,9 @@ gt_registry_init() {
     gt_register_project maths-helper \
         "${MATHS_HELPER_DIR:-$HOME/.maths-helper}"
 
+    gt_register_project ez_colors \
+        "${EZ_COLORS_DIR:-$([ -d "$HOME/ez_colors" ] && echo "$HOME/ez_colors" || echo "$HOME/colors_toolkit")}"
+
     local config="${GT_CONFIG_FILE:-$HOME/.config/gt/projects.conf}"
     local name path line
 
@@ -62,6 +65,7 @@ gt_registry_init() {
         case "$name" in
             sim) name="simulator" ;;
             maths|mhp) name="maths-helper" ;;
+            ez|ez_colors|colors|colors_toolkit) name="ez_colors" ;;
         esac
 
         if [[ ! "$name" =~ ^[a-zA-Z0-9_-]+$ || -z "$path" ]]; then
@@ -128,7 +132,7 @@ Commands:
   exec      Run a raw Git command
 
 Projects:
-  ssot, simulator, maths-helper, all
+  ssot, simulator, maths-helper, ez_colors, all
   Additional projects: ~/.config/gt/projects.conf
 
 Options:
@@ -182,6 +186,7 @@ gt_select_projects() {
         case "$name" in
             sim) name="simulator" ;;
             maths|mhp) name="maths-helper" ;;
+            ez|ez_colors|colors|colors_toolkit) name="ez_colors" ;;
         esac
 
         if [[ ! ${GT_PROJECTS[$name]+_} ]]; then
@@ -641,6 +646,7 @@ gt() {
         case "$project" in
             sim) project="simulator" ;;
             maths|mhp) project="maths-helper" ;;
+            ez|ez_colors|colors|colors_toolkit) project="ez_colors" ;;
         esac
         [[ ${GT_PROJECTS[$project]+_} ]] || {
             gt_fail "Unknown project: $project"
