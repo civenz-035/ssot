@@ -92,3 +92,6 @@ export TERM=xterm-256color
 [[ -f "$HOME/simulator/lib/alias.sh" ]] && source "$HOME/simulator/lib/alias.sh"
 
 
+
+# ez_colors
+source "/c/Users/User/.ez_colors/colors.sh"
