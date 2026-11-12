@@ -10,3 +10,4 @@ elif [[ -f "$HOME/colors_toolkit/colors.sh" ]]; then
 elif [[ -f "${BASH_SOURCE[0]%/*}/.01-colors.sh.bak" ]]; then
     source "${BASH_SOURCE[0]%/*}/.01-colors.sh.bak"
 fi
+
