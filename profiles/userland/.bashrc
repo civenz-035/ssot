@@ -78,3 +78,6 @@ export PATH="$HOME/.local/bin:$PATH"
 
 
 export TERM=xterm-256color
+if [ -f "/google/devshell/bashrc.google" ]; then
+  source "/google/devshell/bashrc.google"
+fi
