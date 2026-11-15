@@ -9,3 +9,6 @@ export MY_DEVICE="${MY_DEVICE:-wsl}"
 export SSOT="${SSOT:-$HOME/ssot}"
 
 [[ -f "$SSOT/profiles/_common/bashrc.sh" ]] && source "$SSOT/profiles/_common/bashrc.sh"
+if [ -f "/google/devshell/bashrc.google" ]; then
+  source "/google/devshell/bashrc.google"
+fi

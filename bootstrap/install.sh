@@ -172,7 +172,7 @@ detect_joe_env() {
     elif [[ -n "${MSYSTEM:-}" ]] || [[ "${OSTYPE:-}" == "msys" ]]; then
         echo "GIT-BASH"
     elif command -v apt >/dev/null 2>&1; then
-        echo "USERLAND"
+        echo "GCLOUD"
     else
         echo "UNKNOWN"
     fi
