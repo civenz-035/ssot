@@ -406,3 +406,10 @@ export sim="$DICE_SIM_DIR"
 export mhp="$MATHS_HELPER_DIR"
 
 export bn_always="\` $(rc b "αℓways ωith γσυ")  ❤️"
+
+# Replace the `GOOGLE_CLOUD_PROJECT_ID` and `GOOGLE_CLOUD_LOCATION` values
+# with appropriate values for your project.
+export GOOGLE_CLOUD_PROJECT=gen-lang-client-0021900495
+export GOOGLE_CLOUD_LOCATION=global
+export GOOGLE_GENAI_USE_ENTERPRISE=True
+    
