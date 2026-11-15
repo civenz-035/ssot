@@ -63,7 +63,7 @@ if ! declare -f cn >/dev/null 2>&1; then
 fi
 
 # ── 3. Paths ──
-VAULT_FILE="$SSOT/core/pubkeys.enc"
+VAULT_FILE="$SSOT/bootstrap/vault/pubkeys.enc"
 SSH_DIR="$HOME/.ssh"
 LOCAL_KEY="$SSH_DIR/id_ed25519_node.pub"
 AUTH_KEYS="$SSH_DIR/authorized_keys"
@@ -489,7 +489,7 @@ cmd_collect() {
         chmod 644 "$VAULT_FILE"
         trap - EXIT; rm -f "$tmp_merge"
         cn 82 b "✅ vault locked: $total key(s) → $VAULT_FILE"
-        echo "  💡 next: git add core/pubkeys.enc && git commit && git push"
+        echo "  💡 next: git add bootstrap/vault/pubkeys.enc && git commit && git push"
     else
         cn 196 b "❌ encrypt failed"
         trap - EXIT; rm -f "$tmp_merge"; return 1

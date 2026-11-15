@@ -2,29 +2,40 @@
 # .gitignore — SSOT Repository
 # ============================================================
 
-# ── Secrets (NEVER commit) ──
+# ── Secrets (NEVER commit plaintext) ──
 .env
 .env.*
 !.env.example
+!bootstrap/vault/.env.enc
+!bootstrap/vault/*.enc
 !core/.env.enc
 !*.env.enc
 *.env.local
 *.env.production
 
-# ── Temp & state files ──
+# ── Node configs & pending pubkeys (committed intentionally) ──
+!bootstrap/nodes/*.node.env
+!bootstrap/nodes/pending/*.pub
+
+# ── Python / Bytecode / Cache ──
+__pycache__/
+*.py[cod]
+.venv/
+.cache/
+
+# ── Temp, backup & state files ──
 /tmp/
 *.swp
 *~
 *.bak
+*.bak.*
 *.tmp
 .DS_Store
 Thumbs.db
 
-# ── Editor ──
+# ── Editor & OS ──
 .vscode/
 .idea/
 *.code-workspace
-
-# ── OS ──
 Desktop.ini
 *.lnk

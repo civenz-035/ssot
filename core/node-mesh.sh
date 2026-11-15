@@ -9,7 +9,7 @@
 #   4. Cross-Platform Path Resolution (Termux ↔ WSL ↔ Git-Bash)
 #   5. Backward-Compatible Node Aliases (NODE_* -> legacy vars)
 #
-# Load order: Sourced by shared/00-env.sh
+# Load order: Sourced by core/00-env.sh
 # Compatible: TERMUX · MUMU · OPPO · WSL · WSL2 · GIT-BASH · ACODEX
 # ============================================================
 

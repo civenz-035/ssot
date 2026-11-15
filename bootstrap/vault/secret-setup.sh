@@ -47,7 +47,7 @@ if ! declare -f cn >/dev/null 2>&1; then
 fi
 
 # ── 3. Paths ──
-VAULT_FILE="$SSOT/core/.env.enc"
+VAULT_FILE="$SSOT/bootstrap/vault/.env.enc"
 VAULT_SCRIPT="$SSOT/bootstrap/vault/ssot-vault.sh"
 EXAMPLE_FILE="$SSOT/.env.example"
 LOCAL_SECRET="$HOME/.env.secret"

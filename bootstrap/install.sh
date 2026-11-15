@@ -25,8 +25,7 @@
 # ============================================================
 
 #set -euo pipefail
-
-[[ -f "$HOME/ssot/joe.sh" ]] && source "$HOME/ssot/joe.sh"
+set -uo pipefail
 
 # ── Minimal color helpers (no dependency on 01-colors.sh yet) ──
 if [[ -t 1 ]] && command -v tput >/dev/null 2>&1 && tput sgr0 >/dev/null 2>&1; then
@@ -90,13 +89,12 @@ fi
 # ── Clean: Remove all previous installation artifacts ──
 log "Stage Pre-0: Cleaning previous installation state"
 
-# Remove ~/.local/bin/ contents (env, joe, syncctl, etc.)
+# Remove previous SSOT tool symlinks in ~/.local/bin/ (preserves unrelated tools like agy, mth, slv)
 if [[ -d "$HOME/.local/bin" ]]; then
-    rm -f "$HOME/.local/bin/env"
-    rm -f "$HOME/.local/bin/joe"
-    rm -f "$HOME/.local/bin/syncctl"
-    rm -f "$HOME/.local/bin/node-status"
-    ok "  Cleaned ~/.local/bin/ (env, joe, syncctl, node-status)"
+    for _old_tool in env joe syncctl shared node-status node-register vault dashboard env-manager mesh-sync cltui; do
+        rm -f "$HOME/.local/bin/$_old_tool"
+    done
+    ok "  Cleaned previous SSOT links in ~/.local/bin/"
 fi
 
 # Remove shell profile symlinks (will be re-created in Stage 4)
@@ -215,18 +213,15 @@ if [[ "$JOE_ENV" == "GIT-BASH" ]]; then
 fi
 
 # Source pkg_manager if available (repo may already be cloned)
-# Canonical path is shared/functions/
+# Canonical path is modules/system/pkg_manager.sh
 _PKG_MGR=""
-for _cand_dir in "$HOME/ssot"; do
-    if [[ -f "$_cand_dir/shared/functions/pkg_manager.sh" ]]; then
-        _PKG_MGR="$_cand_dir/shared/functions/pkg_manager.sh"
+for _cand_dir in "${SSOT:-}" "$HOME/ssot"; do
+    [[ -z "$_cand_dir" ]] && continue
+    if [[ -f "$_cand_dir/modules/system/pkg_manager.sh" ]]; then
+        _PKG_MGR="$_cand_dir/modules/system/pkg_manager.sh"
         break
     fi
 done
-# Legacy fallback (pre-shared/ layout)
-if [[ -z "$_PKG_MGR" && -f "$HOME/ssot/functions/pkg_manager.sh" ]]; then
-    _PKG_MGR="$HOME/ssot/functions/pkg_manager.sh"
-fi
 if [[ -n "$_PKG_MGR" ]]; then
     # shellcheck source=/dev/null
     source "$_PKG_MGR"
@@ -273,21 +268,31 @@ _install_pkg() {
     fi
 }
 
-# ── Update package index (once, best-effort) ──
-case "$JOE_ENV" in
-    TERMUX|MUMU|OPPO)
-        pkg update -y 2>/dev/null || warn "pkg update failed (non-fatal)"
-        ;;
-    WSL|WSL2)
-        sudo apt-get update -qq 2>/dev/null || warn "apt update failed (non-fatal)"
-        ;;
-    ACODEX)
-        apk update 2>/dev/null || warn "apk update failed (non-fatal)"
-        ;;
-    USERLAND )
-        sudo apt update -qq 2>/dev/null || warn "apt update failed (non-fatal)"
-        ;;
-esac
+# ── Update package index only if at least one essential binary is missing ──
+_need_pkg_update=false
+for _req_bin in ssh openssl curl jq make gawk; do
+    command -v "$_req_bin" >/dev/null 2>&1 || { _need_pkg_update=true; break; }
+done
+if [[ "$JOE_ENV" != "GIT-BASH" ]] && ! command -v rsync >/dev/null 2>&1; then
+    _need_pkg_update=true
+fi
+
+if [[ "$_need_pkg_update" == "true" ]]; then
+    case "$JOE_ENV" in
+        TERMUX|MUMU|OPPO)
+            pkg update -y 2>/dev/null || warn "pkg update failed (non-fatal)"
+            ;;
+        WSL|WSL2)
+            sudo apt-get update -qq 2>/dev/null || warn "apt update failed (non-fatal)"
+            ;;
+        ACODEX)
+            apk update 2>/dev/null || warn "apk update failed (non-fatal)"
+            ;;
+        USERLAND )
+            sudo apt update -qq 2>/dev/null || warn "apt update failed (non-fatal)"
+            ;;
+    esac
+fi
 
 # ── Install essential packages ──
 # git: expected to exist already (user installs before clone)
@@ -395,10 +400,17 @@ fi
 printf 'export JOE_ENV="%s"\n%s' "$JOE_ENV" "$(cat "$ENV_FILE" 2>/dev/null)" > "$ENV_FILE"
 ok "~/.env: JOE_ENV=$JOE_ENV (pinned at top)"
 
-# Symlink $SSOT/.env → ~/.env (so joe.sh / 00-env.sh can find it)
+# Symlink $SSOT/.env → ~/.env and $SSOT/.env.secret → ~/.env.secret
 if [[ ! -L "$SSOT/.env" ]]; then
+    rm -f "$SSOT/.env"
     ln -sf "$ENV_FILE" "$SSOT/.env"
     ok "Symlinked $SSOT/.env → ~/.env"
+fi
+touch "$HOME/.env.secret" && chmod 600 "$HOME/.env.secret" 2>/dev/null || true
+if [[ ! -L "$SSOT/.env.secret" ]]; then
+    rm -f "$SSOT/.env.secret"
+    ln -sf "$HOME/.env.secret" "$SSOT/.env.secret"
+    ok "Symlinked $SSOT/.env.secret → ~/.env.secret"
 fi
 
 chmod 600 "$ENV_FILE" 2>/dev/null || true
@@ -414,13 +426,15 @@ if [[ -z "${MY_DEVICE:-}" ]]; then
 fi
 
 # ── 2b. Vault Detection & Auto-Unlock ──
-VAULT_FILE="$SSOT/core/.env.enc"
+VAULT_FILE="$SSOT/bootstrap/vault/.env.enc"
 VAULT_SCRIPT="$SSOT/bootstrap/vault/ssot-vault.sh"
+SECRET_FILE="$HOME/.env.secret"
 
-# Check if secrets are already populated
+# Check if shared secrets in ~/.env.secret are already populated
 _secrets_populated=false
-if [[ -f "$ENV_FILE" ]]; then
-    if grep -qE '^[^#]*=[^"'"'"'\s]+[^\s]' "$ENV_FILE" 2>/dev/null; then
+if [[ -s "$SECRET_FILE" ]]; then
+    if grep -qE '^export [A-Za-z_][A-Za-z0-9_]*=[^"'"'"'\s]+' "$SECRET_FILE" 2>/dev/null \
+       || grep -qE '^export [A-Za-z_][A-Za-z0-9_]*="[^"]+"' "$SECRET_FILE" 2>/dev/null; then
         _secrets_populated=true
     fi
 fi
@@ -435,7 +449,7 @@ if [[ -f "$VAULT_FILE" ]] && [[ "$_secrets_populated" == "false" ]]; then
             else
                 warn "Vault unlock failed — run 'vault unlock' manually"
             fi
-        else
+        elif [[ -t 0 && -c /dev/tty && -z "${SSOT_NONINTERACTIVE:-}" ]]; then
             # Interactive: prompt user
             echo "  📦 Vault found: $VAULT_FILE"
             read -r -t 20 -p "   Unlock secrets now? [Y/n] (default: Y): " _vault_choice < /dev/tty || _vault_choice="Y"
@@ -449,6 +463,8 @@ if [[ -f "$VAULT_FILE" ]] && [[ "$_secrets_populated" == "false" ]]; then
             else
                 echo "  💡 Run 'vault unlock' when ready"
             fi
+        else
+            echo "  💡 Non-interactive shell — skipping vault prompt (run 'vault unlock' later)"
         fi
     else
         warn "Cannot auto-unlock (openssl missing or vault script not found)"
@@ -514,10 +530,10 @@ fi
 
 # ── 3e. SSH Pubkey Vault Unlock (corrector install) ──
 PUBKEY_SCRIPT="$SSOT/bootstrap/nodes/pubkey-corrector.sh"
-PUBKEY_VAULT="$SSOT/core/pubkeys.enc"
+PUBKEY_VAULT="$SSOT/bootstrap/vault/pubkeys.enc"
 
 if [[ -f "$PUBKEY_VAULT" ]] && [[ -f "$PUBKEY_SCRIPT" ]]; then
-    log "Stage 3e: Installing SSH pubkeys from vault (core/pubkeys.enc)"
+    log "Stage 3e: Installing SSH pubkeys from vault (bootstrap/vault/pubkeys.enc)"
     if [[ -n "${SSOT_VAULT_PASS:-}" ]]; then
         # Non-interactive: passphrase provided via env var
         if bash "$PUBKEY_SCRIPT" install 2>/dev/null; then
@@ -525,7 +541,7 @@ if [[ -f "$PUBKEY_VAULT" ]] && [[ -f "$PUBKEY_SCRIPT" ]]; then
         else
             warn "Pubkey unlock failed -- run 'vault pubkey-sync' manually"
         fi
-    else
+    elif [[ -t 0 && -c /dev/tty && -z "${SSOT_NONINTERACTIVE:-}" ]]; then
         # Interactive: write prompt directly to /dev/tty (avoids subshell rendering issue)
         printf "   🔑 Install SSH pubkeys from vault? [Y/n] (default: Y): " > /dev/tty
         read -r -t 15 _pk_choice < /dev/tty || _pk_choice="Y"
@@ -538,6 +554,8 @@ if [[ -f "$PUBKEY_VAULT" ]] && [[ -f "$PUBKEY_SCRIPT" ]]; then
         else
             echo "  💡 Run 'vault pubkey-sync' when ready"
         fi
+    else
+        echo "  💡 Non-interactive shell — skipping pubkey prompt (run 'vault pubkey-sync' later)"
     fi
 else
     ok "No pubkey vault found -- skipping (core/pubkeys.enc)"
@@ -743,7 +761,7 @@ log "Stage 4.6: auto detect and install ble"
 
 # Idempotent: quoted "~" never expands, so always test $HOME unquoted.
 # Guarded with || warn (set -e is on — a failed clone must not abort install).
-if [[ $JOE_ENV != "@(MUMU|USERLAND)" ]]; then
+if [[ "$JOE_ENV" != "MUMU" && "$JOE_ENV" != "USERLAND" ]]; then
     if [[ ! -f "$HOME/.local/share/blesh/ble.sh" ]]; then
         if [[ ! -d "$HOME/ble.sh" ]]; then
             git clone --recursive --depth 1 --shallow-submodules https://github.com/akinomyoga/ble.sh.git "$HOME/ble.sh" 2>/dev/null \
@@ -805,60 +823,44 @@ log "Stage 5: Creating tool symlinks"
 BIN_DIR="$HOME/.local/bin"
 mkdir -p "$BIN_DIR"
 
-# joe command
-if [[ ! -L "$BIN_DIR/joe" ]]; then
-    ln -sf "$SSOT/joe.sh" "$BIN_DIR/joe"
-    chmod +x "$SSOT/joe.sh"
-    ok "Created: $BIN_DIR/joe → joe.sh"
-else
-    ok "$BIN_DIR/joe already linked"
-fi
-
-# syncctl command
-if [[ ! -L "$BIN_DIR/syncctl" ]] && [[ -f "$SSOT/tools/syncctl/syncctl" ]]; then
-    ln -sf "$SSOT/tools/syncctl/syncctl" "$BIN_DIR/syncctl"
-    chmod +x "$SSOT/tools/syncctl/syncctl"
-    ok "Created: $BIN_DIR/syncctl → tools/syncctl/syncctl"
-else
-    ok "$BIN_DIR/syncctl not available (tools/syncctl not found) — skipping"
-fi
-
-# node-status command
-if [[ ! -L "$BIN_DIR/node-status" ]]; then
-    if [[ -f "$SSOT/bootstrap/nodes/node-status.sh" ]]; then
-        ln -sf "$SSOT/bootstrap/nodes/node-status.sh" "$BIN_DIR/node-status"
-        chmod +x "$SSOT/bootstrap/nodes/node-status.sh"
-        ok "Created: $BIN_DIR/node-status → bootstrap/nodes/node-status.sh"
+_wire_tool() {
+    local name="$1"
+    local src="$2"
+    if [[ -f "$src" ]]; then
+        chmod +x "$src" 2>/dev/null || true
+        rm -f "$BIN_DIR/$name"
+        ln -sf "$src" "$BIN_DIR/$name"
+        ok "Linked: $BIN_DIR/$name → ${src#$SSOT/}"
     else
-        ok "$BIN_DIR/node-status not available (node-status.sh not found) — skipping"
+        warn "Tool script missing, skipped: ${src#$SSOT/}"
     fi
-else
-    ok "$BIN_DIR/node-status already linked"
-fi
+}
 
-# node-register command (one-short-command onboarding: node-register --auto <name>)
-if [[ ! -L "$BIN_DIR/node-register" ]]; then
-    if [[ -f "$SSOT/bootstrap/nodes/node-register.sh" ]]; then
-        ln -sf "$SSOT/bootstrap/nodes/node-register.sh" "$BIN_DIR/node-register"
-        chmod +x "$SSOT/bootstrap/nodes/node-register.sh"
-        ok "Created: $BIN_DIR/node-register → bootstrap/nodes/node-register.sh"
-    else
-        ok "$BIN_DIR/node-register not available (node-register.sh not found) — skipping"
-    fi
-else
-    ok "$BIN_DIR/node-register already linked"
-fi
+chmod +x "$SSOT/install.sh" "$SSOT/bootstrap/install.sh" 2>/dev/null || true
+_wire_tool "joe"           "$SSOT/joe.sh"
+_wire_tool "node-status"   "$SSOT/bootstrap/nodes/node-status.sh"
+_wire_tool "node-register" "$SSOT/bootstrap/nodes/node-register.sh"
+_wire_tool "vault"         "$SSOT/bootstrap/vault/ssot-vault.sh"
+_wire_tool "dashboard"     "$SSOT/bin/dashboard.sh"
+_wire_tool "env-manager"   "$SSOT/bin/env-manager.sh"
+_wire_tool "mesh-sync"     "$SSOT/bin/mesh-sync.sh"
+_wire_tool "cltui"         "$SSOT/bin/dist-tui.sh"
 
-# STAGE 6 — SSH Audit & Self-Healing
+# STAGE 6 — SSH Mesh Config & Audit
 # ============================================================
-if [[ -f "$SSOT/bootstrap/script/ssh_audit.sh" ]]; then
-    log "Stage 6: SSH audit"
-    bash "$SSOT/bootstrap/script/ssh_audit.sh" --fix 2>&1 | while IFS= read -r _line; do
-        printf '  %s\n' "$_line"
-    done
+if [[ -f "$SSOT/bootstrap/scripts/mesh-regen.sh" ]]; then
+    log "Stage 6: Generating SSH Mesh Config"
+    if [[ "$JOE_ENV" == "GIT-BASH" ]]; then
+        bash "$SSOT/bootstrap/scripts/mesh-regen.sh" --localhost-wsl 2>&1 | sed 's/^/  /' || warn "mesh-regen warning"
+    else
+        bash "$SSOT/bootstrap/scripts/mesh-regen.sh" 2>&1 | sed 's/^/  /' || warn "mesh-regen warning"
+    fi
+    ok "SSH mesh block updated in ~/.ssh/config"
+fi
+if [[ -f "$SSOT/bootstrap/scripts/ssh_audit.sh" ]]; then
+    log "Stage 6b: Running SSH Audit (read-only check)"
+    bash "$SSOT/bootstrap/scripts/ssh_audit.sh" 2>&1 | sed 's/^/  /' || true
     ok "SSH audit complete"
-else
-    warn "ssh_audit.sh not found — skipping SSH setup"
 fi
 
 # ============================================================
@@ -875,10 +877,11 @@ log "  Checking critical files..."
 _critical_files=(
     "$HOME/.env"
     "$SSOT/joe.sh"
-    "$SSOT/shared/00-env.sh"
+    "$SSOT/core/00-env.sh"
     "$SSOT/core/01-colors.sh"
-    "$SSOT/shared/aliases.sh"
+    "$SSOT/core/aliases.sh"
     "$SSOT/core/3worlds.sh"
+    "$SSOT/plugins/ez_colors/colors.sh"
     "$HOME/.local/bin/env"
 )
 
@@ -897,12 +900,14 @@ for _cf in "${_critical_files[@]}"; do
 done
 
 # ── 7b. Shell profile checks ──
-# Verify .bashrc and .zshrc exist (as file or symlink)
-for _rc in "$HOME/.bashrc" "$HOME/.zshrc"; do
+# Verify .bashrc (and .zshrc on non-GIT-BASH) exist
+_rc_checks=("$HOME/.bashrc")
+[[ "$JOE_ENV" != "GIT-BASH" ]] && _rc_checks+=("$HOME/.zshrc")
+for _rc in "${_rc_checks[@]}"; do
     if [[ -L "$_rc" ]]; then
         _target="$(readlink "$_rc" 2>/dev/null)"
         if [[ -e "$_rc" ]]; then
-            ok "  $(basename "$_rc") — symlink → $(basename "$_target")"
+            ok "  $(basename "$_rc") — symlink → ${_target#$SSOT/}"
         else
             warn "  $(basename "$_rc") — BROKEN symlink → $_target"
             rm -f "$_rc"
@@ -927,7 +932,7 @@ elif [[ -L "$HOME/.bash_aliases" ]]; then
         rm -f "$HOME/.bash_aliases"
     fi
 else
-    warn "  .bash_aliases — not found (non-critical)"
+    ok "  .bash_aliases — optional (using core/aliases.sh)"
 fi
 
 # ── 7d. joe.sh syntax check ──
@@ -946,24 +951,24 @@ else
     _errors=$((_errors + 1))
 fi
 
-# ── 7f. Shell profile sources joe.sh check ──
+# ── 7f. Shell profile sources joe.sh / _common check ──
 if [[ -L "$SHELL_RC" ]]; then
     _target="$(readlink "$SHELL_RC")"
-    if grep -q "joe.sh" "$_target" 2>/dev/null; then
-        ok "$SHELL_RC — sources joe.sh"
+    if grep -qE '(joe\.sh|profiles/_common/)' "$_target" 2>/dev/null; then
+        ok "$SHELL_RC — wired to SSOT startup engine"
     else
         warn "$SHELL_RC — profile may not source joe.sh"
     fi
 else
-    if grep -q "joe.sh" "$SHELL_RC" 2>/dev/null; then
-        ok "$SHELL_RC — sources joe.sh"
+    if grep -qE '(joe\.sh|profiles/_common/)' "$SHELL_RC" 2>/dev/null; then
+        ok "$SHELL_RC — wired to SSOT startup engine"
     else
         warn "$SHELL_RC — does not source joe.sh (may need manual fix)"
     fi
 fi
 
 # ── 7g. Key modules existence check ──
-for _mod in "shared/00-env.sh" "core/01-colors.sh" "shared/aliases.sh" "core/3worlds.sh"; do
+for _mod in "core/00-env.sh" "core/01-colors.sh" "core/aliases.sh" "core/3worlds.sh" "plugins/ez_colors/colors.sh"; do
     if [[ -f "$SSOT/$_mod" ]]; then
         ok "$_mod — found"
     else
@@ -975,16 +980,18 @@ done
 # ── 7h. Syntax check all .sh files ──
 if command -v bash >/dev/null 2>&1; then
     _syntax_fails=0
-    for _f in "$SSOT"/core/*.sh "$SSOT"/shared/functions/*.sh "$SSOT"/shared/personal/*.sh; do
+    while IFS= read -r _f; do
         [[ -f "$_f" ]] || continue
         if ! bash -n "$_f" 2>/dev/null; then
+            warn "  Syntax error in: ${_f#$SSOT/}"
             _syntax_fails=$((_syntax_fails + 1))
         fi
-    done
+    done < <(find "$SSOT/core" "$SSOT/modules" "$SSOT/bin" "$SSOT/bootstrap" "$SSOT/plugins" -type f -name "*.sh" ! -name "zsh-compat.sh" 2>/dev/null)
     if [[ $_syntax_fails -eq 0 ]]; then
-        ok "Syntax check — all core + shared .sh pass"
+        ok "Syntax check — all SSOT .sh files pass"
     else
         warn "Syntax check — $_syntax_fails file(s) have errors"
+        _errors=$((_errors + _syntax_fails))
     fi
 fi
 

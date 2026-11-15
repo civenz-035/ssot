@@ -44,7 +44,7 @@ if ! declare -f cn >/dev/null 2>&1; then
 fi
 
 # ── 3. Paths & Configurations ──
-VAULT_FILE="$SSOT/core/.env.enc"
+VAULT_FILE="$SSOT/bootstrap/vault/.env.enc"
 EXAMPLE_FILE="$SSOT/.env.example"
 LOCAL_SECRET="$HOME/.env.secret"
 SSOT_SECRET="$SSOT/.env.secret"
@@ -463,7 +463,7 @@ cmd_export() {
         exit 1
     fi
 
-    local backup_dir="$SSOT/core/backups"
+    local backup_dir="$SSOT/bootstrap/vault/backups"
     mkdir -p "$backup_dir"
     local backup_file="$backup_dir/.env.secret.$(date +%Y%m%d_%H%M%S).enc"
 
@@ -710,8 +710,8 @@ case "${1:-}" in
         echo "Usage: $(basename "$0") <command>"
         echo ""
         echo "Secret Commands:"
-        echo "  lock    Encrypt ~/.env.secret → core/.env.enc"
-        echo "  unlock  Decrypt core/.env.enc → ~/.env.secret"
+        echo "  lock    Encrypt ~/.env.secret → bootstrap/vault/.env.enc"
+        echo "  unlock  Decrypt bootstrap/vault/.env.enc → ~/.env.secret"
         echo "  status  Vault health + secret audit (exit 1 if incomplete)"
         echo "  init    Interactive wizard to fill in secrets"
         echo "  export  Encrypted backup of ~/.env.secret"

@@ -5,7 +5,7 @@
 #          pf                    - show current profile + key status
 #          stc                   - show full stats dashboard (with live API probe)
 #
-# SSOT: key lives in ~/ssot/00-env.sh
+# SSOT: keys live in ~/.env.secret (unlocked via `vault unlock`)
 #   OC_KEY_MOM      - OpenCode Go sub, key แม่ (default, has credits)
 #   OC_KEY_ZEN_MOM  - OpenCode Zen (Claude Sonnet 4.5) - mom
 #   OC_KEY_JOE      - OpenCode Go sub, key พี่โจ
@@ -30,7 +30,7 @@ ai_profile() {
             # "pop_var_context" bug when sourced during .bashrc boot
             export OPENCODE_GO_API_KEY="${OC_KEY_MOM:-}"
             if [[ -z "$OPENCODE_GO_API_KEY" ]]; then
-                printf "%s\n" "$(c 203 b 'x OC_KEY_MOM not set') $(c 244 d '— check 00-env.sh')" >&2
+                printf "%s\n" "$(c 203 b 'x OC_KEY_MOM not set') $(c 244 d '— check ~/.env.secret or run vault unlock')" >&2
                 return 1
             fi
             export OPENCODE_API_KEY="$OPENCODE_GO_API_KEY"
@@ -43,7 +43,7 @@ ai_profile() {
             export email="absolute.basic@gmail.com"
             export OPENCODE_GO_API_KEY="${OC_KEY_JOE:-}"
             if [[ -z "$OPENCODE_GO_API_KEY" ]]; then
-                printf "%s\n" "$(c 203 b 'x OC_KEY_JOE not set') $(c 244 d '— check 00-env.sh')" >&2
+                printf "%s\n" "$(c 203 b 'x OC_KEY_JOE not set') $(c 244 d '— check ~/.env.secret or run vault unlock')" >&2
                 return 1
             fi
             export OPENCODE_API_KEY="$OPENCODE_GO_API_KEY"

@@ -13,15 +13,15 @@ description: 'Onboard a new device into the SSOT SSH/Tailscale mesh. Use when ad
 
 ## Procedure
 1. Install SSOT (idempotent, auto-detects env):
-   `bash ~/ssot/bootstrap/install.sh [termux|mumu|oppo|wsl|wsl2]` —
-   stages: packages → clone → `~/.env` (+ pin `JOE_ENV` line 1) → vault unlock → node-register → pubkey install → profile symlink → `ssh_audit.sh --fix` → verify.
+   `bash ~/ssot/install.sh [termux|mumu|oppo|wsl|wsl2|git-bash|acodex|userland]` —
+   stages: packages → clone → `~/.env` (+ pin `JOE_ENV` line 1) → vault unlock → node-register → pubkey install → profile symlink → `mesh-regen.sh` + `ssh_audit.sh` → verify.
 2. Register identity (creates `bootstrap/nodes/<name>.node.env`, sets `MY_DEVICE`):
    `bash ~/ssot/bootstrap/nodes/node-register.sh --dry-run` then without flag (or `<name>` for custom).
    Schema: `NODE_<NAME>_{HOST,USER,PORT,ST_PORT,ST_KEY,ST_ID,ST_URL}`; HOST = Tailscale MagicDNS short name; ports: `wsl=2222`, `wsl2=2223`, `termux=8022`, `mumu=8020`, `oppo=8023`, `acodex=8021`, `window=22`.
-3. Node key: ensure `~/.ssh/id_ed25519_node` (+`.pub`, `600`/`644`) exists — `ssh_audit.sh --fix` generates it if missing. Never commit private keys.
+3. Node key: ensure `~/.ssh/id_ed25519_node` (+`.pub`, `600`/`644`) exists — `install.sh` / `ssh_audit.sh --fix` generates it if missing. Never commit private keys.
 4. Distribute pubkey via encrypted vault (no plaintext key exchange):
    install.sh auto-publishes the new key to `bootstrap/nodes/pending/*.pub` + push;
-   on the hub: `vault pubkey-collect --collect`, commit + push `core/pubkeys.enc`;
+   on the hub: `vault pubkey-collect --collect`, commit + push `bootstrap/vault/pubkeys.enc`;
    then hub: `vault pubkey-sync --fanout` (or per node: `git pull && vault pubkey-sync`); check with `vault pubkey-audit`.
 5. WSL special-case: if `Ubuntu`/`Ubuntu-22.04` share mirrored netns, re-apply separation (see `/mesh-repair`):
    `tailscale-separate.sh wsl|wsl2`, then `mesh-regen.sh` (plain inside distros, `--localhost-wsl` on `window` only).
@@ -29,4 +29,4 @@ description: 'Onboard a new device into the SSOT SSH/Tailscale mesh. Use when ad
 7. Sync repos: commit/push/pull `~/ssot` on touched nodes so `*.node.env` + `pubkeys.enc` converge; resolve `SSH_PORT` rebase conflicts toward separated values (`2222`/`2223`).
 
 ## References
-- Installer: [install.sh](../../bootstrap/install.sh) · Registrar: [node-register.sh](../../bootstrap/nodes/node-register.sh) · Keys: [pubkey-corrector.sh](../../bootstrap/nodes/pubkey-corrector.sh) · Mesh: [mesh-regen.sh](../../bootstrap/script/mesh-regen.sh) · Repair: [mesh-repair](../mesh-repair/SKILL.md)
+- Installer: [install.sh](../../bootstrap/install.sh) · Registrar: [node-register.sh](../../bootstrap/nodes/node-register.sh) · Keys: [pubkey-corrector.sh](../../bootstrap/nodes/pubkey-corrector.sh) · Mesh: [mesh-regen.sh](../../bootstrap/scripts/mesh-regen.sh) · Repair: [mesh-repair](../mesh-repair/SKILL.md)

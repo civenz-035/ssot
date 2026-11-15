@@ -622,7 +622,7 @@ Recreate_ssh_authorized_keys() {
         return 1
     fi
 
-    # 2. Key name from canonical node tag (shared/00-env.sh sets NODE_HOST
+    # 2. Key name from canonical node tag (core/00-env.sh sets NODE_HOST
     #    per JOE_ENV; hostname fallback keeps this usable standalone)
     local key_name="${1:-"${USER}@${NODE_HOST}"}"
     local ssh_dir="$HOME/.ssh"
