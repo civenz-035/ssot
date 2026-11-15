@@ -404,6 +404,8 @@ export POL_BK="${POL_BK:-$BEP20_BK}"
 export sim="$DICE_SIM_DIR"
 export mhp="$MATHS_HELPER_DIR"
 export CODETRANS_DIR="${CODETRANS_DIR:-$HOME/projects/codetrans}"
+export agt="$HOME/agent"
+
 
 if command -v rc >/dev/null 2>&1; then
     export bn_always="\` $(rc b "αℓways ωith γσυ")  ❤️"

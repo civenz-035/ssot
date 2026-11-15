@@ -90,3 +90,4 @@ alias dicepy='"${_py:-python3}" "$DICE_SIM_DIR/bin/roll.py"'
 alias dcf='micro "$DICE_SIM_DIR/config/dice.env"'
 
 export spacing='<  >   copy  spacing inside <>'
+alias agt='cd "$agt" && pwd'
