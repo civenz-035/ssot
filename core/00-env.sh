@@ -405,6 +405,7 @@ export sim="$DICE_SIM_DIR"
 export mhp="$MATHS_HELPER_DIR"
 export CODETRANS_DIR="${CODETRANS_DIR:-$HOME/projects/codetrans}"
 export agt="$HOME/agent"
+export wbot="$HOME/whatsapp-gateway"
 
 
 if command -v rc >/dev/null 2>&1; then

@@ -91,3 +91,6 @@ alias dcf='micro "$DICE_SIM_DIR/config/dice.env"'
 
 export spacing='<  >   copy  spacing inside <>'
 alias agt='cd "$agt" && pwd'
+
+alias wbot='cd "$wbot" && pwd'
+
