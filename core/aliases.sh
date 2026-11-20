@@ -93,4 +93,5 @@ export spacing='<  >   copy  spacing inside <>'
 alias agt='cd "$agt" && pwd'
 
 alias wbot='cd "$wbot" && pwd'
+alias wrc="winrate_cal"
 

@@ -47,7 +47,7 @@ NODE_OPPO_HOST="${NODE_OPPO_HOST:-oppo}"
 NODE_OPPO_USER="${NODE_OPPO_USER:-u0_a88}"
 NODE_OPPO_PORT="${NODE_OPPO_PORT:-8023}"
 NODE_REDMI_HOST="${NODE_REDMI_HOST:-redmi}"
-NODE_REDMI_USER="${NODE_REDMI_USER:-}"
+NODE_REDMI_USER="${NODE_REDMI_USER:-u0_a0}"
 NODE_REDMI_PORT="${NODE_REDMI_PORT:-8024}"
 NODE_MUMU_HOST="${NODE_MUMU_HOST:-mumu}"
 NODE_MUMU_USER="${NODE_MUMU_USER:-u0_a62}"
@@ -94,10 +94,10 @@ _MACS="hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com,umac-128-etm@
 
 entry() {
     local alias="$1" hostname="$2" user="$3" port="$4"
+    echo "Host $alias"
+    echo "    HostName $hostname"
+    [[ -n "$user" ]] && echo "    User $user"
     cat <<EOF
-Host $alias
-    HostName $hostname
-    User $user
     Port $port
     IdentityFile ~/.ssh/id_ed25519_node
     IdentitiesOnly yes
