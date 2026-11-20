@@ -61,7 +61,7 @@ auto_start_ssh() {
         else
             command -v cn &>/dev/null && cn 10 bi "ssh activated port : ${SSH_PORT}" >&2
         fi
-    elif [[ "$JOE_ENV" == "TERMUX" || "$JOE_ENV" == "MUMU" || "$JOE_ENV" == "OPPO" ]]; then
+    elif [[ "$JOE_ENV" == "TERMUX" || "$JOE_ENV" == "MUMU" || "$JOE_ENV" == "OPPO" || "$JOE_ENV" == "REDMI" ]]; then
         if ! pgrep -f "sshd.*-p.*${SSH_PORT}" >/dev/null 2>&1; then
             sshd -p "$SSH_PORT" >/dev/null 2>&1 \
                 && { command -v cn &>/dev/null && cn 10 b "SSH Daemon started on port ${SSH_PORT}." >&2; } \
