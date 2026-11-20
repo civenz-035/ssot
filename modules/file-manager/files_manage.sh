@@ -111,6 +111,13 @@ _fm_node_vars() {
       _FM_PROTO="scp"
       _FM_TAG="OPPO"
       ;;
+    rd|redmi|REDMI)
+      _FM_USER="${NODE_REDMI_USER}"
+      _FM_HOST="${NODE_REDMI_HOST}"
+      _FM_PORT="${NODE_REDMI_PORT}"
+      _FM_PROTO="rsync"
+      _FM_TAG="REDMI"
+      ;;
     *)
       cn 196 b "fm: unknown node '${node}'"
       cn 252   "  nodes: termux | wsl | wsl2 | win | mumu | oppo"
@@ -307,6 +314,7 @@ fm_info() {
   printf "  %-8s %-20s %-20s %-6s %s\n" "WIN"    "${NODE_WIN_HOST:-?}"    "${NODE_WIN_USER:-?}"    "${NODE_WIN_PORT:-22}"   "scp"
   printf "  %-8s %-20s %-20s %-6s %s\n" "MUMU"   "${NODE_MUMU_HOST:-?}"   "${NODE_MUMU_USER:-?}"   "${NODE_MUMU_PORT:-?}"   "scp"
   printf "  %-8s %-20s %-20s %-6s %s\n" "OPPO" "${NODE_OPPO_HOST:-?}" "${NODE_OPPO_USER:-?}" "${NODE_OPPO_PORT:-?}" "rsync"
+  printf "  %-8s %-20s %-20s %-6s %s\n" "REDMI" "${NODE_REDMI_HOST:-?}" "${NODE_REDMI_USER:-?}" "${NODE_REDMI_PORT:-?}" "rsync"
   printf "  %.0s-" {1..60}; echo
   cn 252 "  Source: \$SSOT/core/00-env.sh"
 }

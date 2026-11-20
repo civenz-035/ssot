@@ -479,6 +479,7 @@ _render_nodes() {
             mumu)   node_icon="🤖" ;;
             window) node_icon="🪟" ;;
             oppo)   node_icon="📱" ;;
+            redmi)  node_icon="📱" ;;
             acodex) node_icon="📟" ;;
             *)      node_icon="🔵" ;;
         esac

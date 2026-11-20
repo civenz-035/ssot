@@ -104,6 +104,7 @@ _detect_identity() {
             TERMUX)   device_name="termux" ;;
             MUMU)     device_name="mumu" ;;
             OPPO)     device_name="oppo" ;;
+            REDMI)    device_name="redmi" ;;
             WSL)      device_name="wsl" ;;
             WSL2)     device_name="wsl2" ;;
             ACODEX)   device_name="acodex" ;;
@@ -134,6 +135,7 @@ _detect_ssh_port() {
         TERMUX)   echo "8022" ;;
         MUMU)     echo "8020" ;;
         OPPO)     echo "8023" ;;
+        REDMI)    echo "8024" ;;
         ACODEX)   echo "8021" ;;
         WSL)      echo "2222" ;;
         WSL2)     echo "2223" ;;

@@ -17,7 +17,7 @@ description: 'Onboard a new device into the SSOT SSH/Tailscale mesh. Use when ad
    stages: packages → clone → `~/.env` (+ pin `JOE_ENV` line 1) → vault unlock → node-register → pubkey install → profile symlink → `mesh-regen.sh` + `ssh_audit.sh` → verify.
 2. Register identity (creates `bootstrap/nodes/<name>.node.env`, sets `MY_DEVICE`):
    `bash ~/ssot/bootstrap/nodes/node-register.sh --dry-run` then without flag (or `<name>` for custom).
-   Schema: `NODE_<NAME>_{HOST,USER,PORT,ST_PORT,ST_KEY,ST_ID,ST_URL}`; HOST = Tailscale MagicDNS short name; ports: `wsl=2222`, `wsl2=2223`, `termux=8022`, `mumu=8020`, `oppo=8023`, `acodex=8021`, `window=22`.
+   Schema: `NODE_<NAME>_{HOST,USER,PORT,ST_PORT,ST_KEY,ST_ID,ST_URL}`; HOST = Tailscale MagicDNS short name; ports: `wsl=2222`, `wsl2=2223`, `termux=8022`, `mumu=8020`, `oppo=8023`, `redmi=8024`, `acodex=8021`, `window=22`.
 3. Node key: ensure `~/.ssh/id_ed25519_node` (+`.pub`, `600`/`644`) exists — `install.sh` / `ssh_audit.sh --fix` generates it if missing. Never commit private keys.
 4. Distribute pubkey via encrypted vault (no plaintext key exchange):
    install.sh auto-publishes the new key to `bootstrap/nodes/pending/*.pub` + push;

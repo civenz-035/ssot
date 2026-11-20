@@ -247,7 +247,7 @@ _install_pkg() {
     else
         # Native fallback — runs only on first boot before repo is cloned
         case "$JOE_ENV" in
-            TERMUX|MUMU|OPPO)
+            TERMUX|MUMU|OPPO|REDMI)
                 local t_pkg="$pkg"
                 [[ "$pkg" == "openssl" ]] && t_pkg="openssl-tool"
                 pkg install -y "$t_pkg" 2>/dev/null || warn "  pkg install $pkg failed"
@@ -279,7 +279,7 @@ fi
 
 if [[ "$_need_pkg_update" == "true" ]]; then
     case "$JOE_ENV" in
-        TERMUX|MUMU|OPPO)
+        TERMUX|MUMU|OPPO|REDMI)
             pkg update -y 2>/dev/null || warn "pkg update failed (non-fatal)"
             ;;
         WSL|WSL2)
@@ -318,7 +318,7 @@ fi
 ok "Stage 1: Essential packages ready"
 
 # ── Termux-specific: Storage access ──
-if [[ "$JOE_ENV" == "TERMUX" || "$JOE_ENV" == "MUMU" ]]; then
+if [[ "$JOE_ENV" == "TERMUX" || "$JOE_ENV" == "MUMU" || "$JOE_ENV" == "OPPO" || "$JOE_ENV" == "REDMI" ]]; then
     if [[ ! -d "$HOME/storage" ]]; then
         log "  Requesting storage access..."
         termux-setup-storage </dev/null || warn "termux-setup-storage failed (approve manually)"
@@ -629,6 +629,10 @@ case "$JOE_ENV" in
         ;;
     OPPO)
         PROFILE_DIR="$SSOT/profiles/oppo"
+        SHELL_RC="$HOME/.zshrc"
+        ;;
+    REDMI)
+        PROFILE_DIR="$SSOT/profiles/redmi"
         SHELL_RC="$HOME/.zshrc"
         ;;
     PI)

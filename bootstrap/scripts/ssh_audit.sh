@@ -53,16 +53,18 @@ fi
 # เหตุผล: 00-env.sh ใช้ $msync, $DASHBOARD_DIR, $hpc, $hwsl — ต้อง set ก่อน
 # ทำ inline แทน source joe.sh เพื่อกัน side-effects (ssh-agent, sshd, ssot_load)
 case "$JOE_ENV" in
-    TERMUX|MUMU|OPPO)
+    TERMUX|MUMU|OPPO|REDMI)
         export SSOT="/data/data/com.termux/files/home/ssot"
         export DASHBOARD_DIR="$HOME/dashboard"
         export MAIN_SYNC_DIR="$HOME/main_sync"
         export SSH_MUMU_PORT=8020
         export SSH_TERMUX_PORT=8022
+        export SSH_OPPO_PORT=8023
+        export SSH_REDMI_PORT=8024
         export SSH_WSL_PORT=2222
         export SSH_WSL2_PORT=2223
         export SSH_WIN_PORT=22
-        export SSH_PORT=8022
+        export SSH_PORT=8024
         ;;
     WSL|WSL2)
         export SSOT="${SSOT:-$HOME/ssot}"
@@ -165,6 +167,10 @@ NODE_WSL2_PORT="${NODE_WSL2_PORT:-2223}"
 NODE_OPPO_HOST="${NODE_OPPO_HOST:-oppo}"
 NODE_OPPO_USER="${NODE_OPPO_USER:-u0_a88}"
 NODE_OPPO_PORT="${NODE_OPPO_PORT:-8023}"
+
+NODE_REDMI_HOST="${NODE_REDMI_HOST:-redmi}"
+NODE_REDMI_USER="${NODE_REDMI_USER:-}"
+NODE_REDMI_PORT="${NODE_REDMI_PORT:-8024}"
 
 NODE_MUMU_HOST="${NODE_MUMU_HOST:-mumu}"
 NODE_MUMU_USER="${NODE_MUMU_USER:-u0_a62}"
@@ -533,6 +539,17 @@ Host oppo
     HostName ${NODE_OPPO_HOST}
     User ${NODE_OPPO_USER}
     Port ${NODE_OPPO_PORT}
+    IdentityFile ~/.ssh/id_ed25519_node
+    IdentitiesOnly yes
+    ServerAliveInterval 30
+    ServerAliveCountMax 3
+    ConnectTimeout 5
+    PreferredAuthentications publickey
+
+Host redmi
+    HostName ${NODE_REDMI_HOST}
+    User ${NODE_REDMI_USER}
+    Port ${NODE_REDMI_PORT}
     IdentityFile ~/.ssh/id_ed25519_node
     IdentitiesOnly yes
     ServerAliveInterval 30

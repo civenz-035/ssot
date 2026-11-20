@@ -211,6 +211,7 @@ _print_node() {
         mumu)   icon="🤖" ;;
         window) icon="🪟" ;;
         oppo)   icon="📱" ;;
+        redmi)  icon="📱" ;;
         acodex) icon="📟" ;;
         *)      icon="🔵" ;;
     esac

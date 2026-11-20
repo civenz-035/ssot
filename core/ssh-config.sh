@@ -25,6 +25,7 @@ ssh_() {
         wsl|WSL)                    ssh wsl       "$@" ;;
         wsl2|WSL2)                  ssh wsl2      "$@" ;;
         op|oppo|OPPO|o)             ssh oppo      "$@" ;;
+        rd|redmi|REDMI)             ssh redmi     "$@" ;;
         ax|a|ACODEX|A)              ssh -p 8021 root@termux "bash" "$@" ;;
         *) cn r b "usage ssh_ <host>"; return 1 ;;
     esac     
@@ -69,6 +70,11 @@ node_resolve() {
             TARGET_HOST="$NODE_OPPO_HOST"
             TARGET_PORT="${NODE_OPPO_PORT:-8023}"
             TARGET_USER="$NODE_OPPO_USER"
+            ;;
+        rd|redmi|REDMI)
+            TARGET_HOST="$NODE_REDMI_HOST"
+            TARGET_PORT="${NODE_REDMI_PORT:-8024}"
+            TARGET_USER="$NODE_REDMI_USER"
             ;;
         ax|a|acodex|ACODEX)
             TARGET_HOST="$NODE_ACODEX_HOST"

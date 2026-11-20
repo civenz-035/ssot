@@ -139,6 +139,14 @@ case "$JOE_ENV" in
         export MAIN_SYNC_DIR="$HOME/main_sync"
         export SSH_PORT=8023
         ;;
+    REDMI)
+        export DASHBOARD_DIR="$HOME/dashboard"
+        export OBSIDIAN_VAULT="/storage/emulated/0/syncthing/hermes_vault"
+        export home="$HOME"
+        export nexus_vault="$HOME/nexus_vault"
+        export MAIN_SYNC_DIR="$HOME/main_sync"
+        export SSH_PORT=8024
+        ;;
     ACODEX)
         export DASHBOARD_DIR="$HOME/dashboard"
         export home="$HOME"
@@ -227,6 +235,7 @@ export msync="${MAIN_SYNC_DIR}"
 export SSH_MUMU_PORT=8020
 export SSH_TERMUX_PORT=8022
 export SSH_OPPO_PORT=8023
+export SSH_REDMI_PORT=8024
 export SSH_ACODEX_PORT=8021
 export SSH_WSL_PORT=2222
 export SSH_WSL2_PORT=2223
@@ -234,6 +243,8 @@ export SSH_WIN_PORT=22
 export pftermux="${SSOT}/profiles/termux"
 export ptwsl="${SSOT}/profiles/wsl"
 export pfmumu="${SSOT}/profiles/mumu"
+export pfoppo="${SSOT}/profiles/oppo"
+export pfredmi="${SSOT}/profiles/redmi"
 export pfwin="${SSOT}/profiles/git-bash"
 # ============================================================
 # SupperBoom env

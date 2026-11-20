@@ -37,5 +37,5 @@ vault status | pubkey-fix | pubkey-sync                       # secret audit | r
 
 - **Colors:** only `c`/`cn`/`color`/`rc`/`rc1`/`rc2`/`ctab`/`hline` from [core/01-colors.sh](core/01-colors.sh) (backed by bundled `plugins/ez_colors/`). Never hardcode `\033[`, `\e[38;5` outside `core/01-colors.sh` and `plugins/ez_colors/`.
 - **Standalone scripts:** preamble `set -uo pipefail`, never `set -e`. Never `source joe.sh` fully — mirror the `JOE_ENV` path setup from `joe.sh`/`ssh_audit.sh`. Init output to stderr only (p10k-safe).
-- **Ports:** `wsl=2222`, `wsl2=2223`, `termux=8022`, `mumu=8020`, `oppo=8023`, `acodex=8021`, `window=22`. Read from `NODE_*_PORT` / `SSH_*_PORT`, never hardcode.
+- **Ports:** `wsl=2222`, `wsl2=2223`, `termux=8022`, `mumu=8020`, `oppo=8023`, `redmi=8024`, `acodex=8021`, `window=22`. Read from `NODE_*_PORT` / `SSH_*_PORT`, never hardcode.
 - **Secrets:** never commit `~/.env` or `~/.env.secret` (gitignored, `600`). Template = `.env.example`. Encrypted = `bootstrap/vault/.env.enc` (+ `bootstrap/vault/pubkeys.enc`) via `vault`.
