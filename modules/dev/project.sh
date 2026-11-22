@@ -150,32 +150,3 @@ prompt_enhancement() {
 }
 alias pe='prompt_enhancement'
 #--------------------------------------
-
-nx_build() {
-  cd "$nx"
-  local target="${1:-auto}"
-  case "$target" in
-    tm|termux)
-      NEXUS_ENV=termux bash scripts/build-all.sh "${@:2}"
-      ;;
-    win|windows)
-      NEXUS_ENV=windows bash scripts/build-all.sh "${@:2}"
-      ;;
-    wsl)
-      NEXUS_ENV=windows bash scripts/build-all.sh "${@:2}"
-      ;;
-    auto)
-      # ใช้ JOE_ENV จากระบบ SSOT โดยอัตโนมัติ (ไม่ต้องระบุ argument)
-      bash scripts/build-all.sh "${@:2}"
-      ;;
-    *)
-      echo "Usage: nxb [tm|win|wsl|auto] [build-all targets...]"
-      echo "  auto  — detect from \$JOE_ENV (current: ${JOE_ENV:-unset})"
-      echo "  tm    — force NEXUS_ENV=termux"
-      echo "  win   — force NEXUS_ENV=windows"
-      echo "  wsl   — force NEXUS_ENV=windows (WSL alias)"
-      return 1
-      ;;
-  esac
-}
-alias nxb='nx_build'

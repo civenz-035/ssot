@@ -119,7 +119,6 @@ case "$JOE_ENV" in
         export DASHBOARD_DIR="$HOME/dashboard"
         export OBSIDIAN_VAULT="/storage/emulated/0/syncthing/hermes_vault"
         export home="$HOME"
-        export nexus_vault="$HOME/nexus_vault"
         export MAIN_SYNC_DIR="$HOME/main_sync"
         export SSH_PORT=8022
         ;;
@@ -127,7 +126,6 @@ case "$JOE_ENV" in
         export DASHBOARD_DIR="$HOME/dashboard"
         export OBSIDIAN_VAULT="/storage/emulated/0/syncthing/hermes_vault"
         export home="$HOME"
-        export nexus_vault="$HOME/nexus_vault"
         export MAIN_SYNC_DIR="$HOME/main_sync"
         export SSH_PORT=8020
         ;;
@@ -135,7 +133,6 @@ case "$JOE_ENV" in
         export DASHBOARD_DIR="$HOME/dashboard"
         export OBSIDIAN_VAULT="/storage/emulated/0/syncthing/hermes_vault"
         export home="$HOME"
-        export nexus_vault="$HOME/nexus_vault"
         export MAIN_SYNC_DIR="$HOME/main_sync"
         export SSH_PORT=8023
         ;;
@@ -143,14 +140,12 @@ case "$JOE_ENV" in
         export DASHBOARD_DIR="$HOME/dashboard"
         export OBSIDIAN_VAULT="/storage/emulated/0/syncthing/hermes_vault"
         export home="$HOME"
-        export nexus_vault="$HOME/nexus_vault"
         export MAIN_SYNC_DIR="$HOME/main_sync"
         export SSH_PORT=8024
         ;;
     ACODEX)
         export DASHBOARD_DIR="$HOME/dashboard"
         export home="$HOME"
-        export nexus_vault="$HOME/nexus_vault"
         export MAIN_SYNC_DIR="$HOME/main_sync"
         export SSH_PORT=8021
         ;;
@@ -158,7 +153,6 @@ case "$JOE_ENV" in
         export DASHBOARD_DIR="$HOME/dashboard"
         export OBSIDIAN_VAULT="$hpc/DESKTOP/obsidian/alphadev_vaults"
         export home="$HOME"
-        export nexus_vault="$HOME/nexus_vault"
         export MAIN_SYNC_DIR="$hpc/DESKTOP/main_sync"
         export SSH_PORT=2222
         ;;
@@ -166,14 +160,12 @@ case "$JOE_ENV" in
         export DASHBOARD_DIR="$HOME/dashboard"
         export OBSIDIAN_VAULT="$hpc/DESKTOP/obsidian/alphadev_vaults"
         export home="$HOME"
-        export nexus_vault="$HOME/nexus_vault"
         export MAIN_SYNC_DIR="$hpc/DESKTOP/main_sync"
         export SSH_PORT=2223
         ;;
     GIT-BASH)
         export DASHBOARD_DIR="$HWSL2/dashboard"
         export OBSIDIAN_VAULT="$hpc/DESKTOP/obsidian/alphadev_vaults"
-        export nexus_vault="$hpc/DESKTOP/nexus_vault"
         export MAIN_SYNC_DIR="$hpc/DESKTOP/main_sync"
         export home="$HOME"
         export SSH_PORT=2222
@@ -181,7 +173,6 @@ case "$JOE_ENV" in
     *)
         export DASHBOARD_DIR="$HOME/dashboard"
         export home="$HOME"
-        export nexus_vault="$HOME/nexus_vault"
         export MAIN_SYNC_DIR="$HOME/main_sync"
         export SSH_PORT=22
         ;;
@@ -305,7 +296,6 @@ fi
 # ============================================================
 
 # --- SHORT CUT FOR JOE-- #
-export nx="$nexus_vault"
 export USDT_BEP20_BITKUB="${USDT_BEP20_BITKUB:-}"
 export SOL_BITKUB="${SOL_BITKUB:-}"
 export SOL_METAMAS="${SOL_METAMAS:-}"

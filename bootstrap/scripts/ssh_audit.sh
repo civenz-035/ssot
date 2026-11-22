@@ -113,7 +113,6 @@ export htm="/data/data/com.termux/files/home"
 export OP_DIR="${HOME}"
 export home="${HOME}"
 # Other vars that 00-env.sh references from joe.sh
-export nexus_vault="${nexus_vault:-$HOME/nexus_vault}"
 export OBSIDIAN_VAULT="${OBSIDIAN_VAULT:-$HOME/obsidian}"
 
 # โหลด Color Engine V3/V4 (SSOT) ก่อน 00-env.sh

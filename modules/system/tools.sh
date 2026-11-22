@@ -307,7 +307,7 @@ e(){
  auto_write_file() {
     
     local HEAD_NAME=${1:-"FUNCTION"}
-    local FILE_PATH=${2:-"$(fn 08-nexus.sh)"}
+    local FILE_PATH=${2:-"$PWD/output.txt"}
     local width=""
     local TEXT=${3:-"TYPE SOMETHING"}
 
