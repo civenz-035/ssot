@@ -187,6 +187,12 @@ NODE_WIN_HOST="${NODE_WIN_HOST:-window}"
 NODE_WIN_USER="${NODE_WIN_USER:-User}"
 NODE_WIN_PORT="${NODE_WIN_PORT:-22}"
 
+# โหลด node registry ทั้งหมด (bootstrap/nodes/*.node.env) — เพิ่มเครื่องใหม่ไม่ต้องแก้ไฟล์นี้
+if [[ -f "$SSOT/bootstrap/nodes/loader.sh" ]]; then
+    # shellcheck source=/dev/null
+    source "$SSOT/bootstrap/nodes/loader.sh" 2>/dev/null || true
+fi
+
 # ตัวนับผลลัพธ์การ Audit
 AUDIT_ERRORS=0
 AUDIT_WARNINGS=0
@@ -497,6 +503,32 @@ fix_all() {
     _ciphers="chacha20-poly1305@openssh.com,aes128-gcm@openssh.com,aes256-gcm@openssh.com,aes128-ctr,aes192-ctr,aes256-ctr"
     _macs="hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com,umac-128-etm@openssh.com,hmac-sha2-512,hmac-sha2-256"
 
+    # สร้าง Host entries จากทุก node ที่ลงทะเบียน (ไม่มี hardcode)
+    local _hosts="" _nf _nn _up _nh _nu _np
+    for _nf in "$SSOT"/bootstrap/nodes/*.node.env; do
+        [[ -f "$_nf" ]] || continue
+        _nn="${_nf##*/}"; _nn="${_nn%.node.env}"
+        _nn="$(printf '%s' "$_nn" | tr '[:upper:]' '[:lower:]')"
+        _up="$(printf '%s' "$_nn" | tr '[:lower:]-' '[:upper:]_')"
+        [[ "$_up" == "WINDOW" && -z "${NODE_WINDOW_HOST:-}" ]] && _up="WIN"
+        eval "_nh=\"\${NODE_${_up}_HOST:-\${NODE_${_up}_IP:-}}\""
+        eval "_nu=\"\${NODE_${_up}_USER:-}\""
+        eval "_np=\"\${NODE_${_up}_PORT:-22}\""
+        [[ -z "$_nh" ]] && continue
+        _hosts="${_hosts}Host ${_nn}
+    HostName ${_nh}
+    User ${_nu}
+    Port ${_np}
+    IdentityFile ~/.ssh/id_ed25519_node
+    IdentitiesOnly yes
+    ServerAliveInterval 30
+    ServerAliveCountMax 3
+    ConnectTimeout 5
+    PreferredAuthentications publickey
+
+"
+    done
+
     local mesh_block
     mesh_block=$(cat <<EOF
 # >>> JOE_SSOT_MESH_START >>>
@@ -512,93 +544,7 @@ Host *
     Ciphers ${_ciphers}
     MACs ${_macs}
 
-Host wsl
-    HostName ${NODE_WSL_HOST}
-    User ${NODE_WSL_USER}
-    Port ${NODE_WSL_PORT}
-    IdentityFile ~/.ssh/id_ed25519_node
-    IdentitiesOnly yes
-    ServerAliveInterval 30
-    ServerAliveCountMax 3
-    ConnectTimeout 5
-    PreferredAuthentications publickey
-
-Host wsl2
-    HostName ${NODE_WSL2_HOST}
-    User ${NODE_WSL2_USER}
-    Port ${NODE_WSL2_PORT}
-    IdentityFile ~/.ssh/id_ed25519_node
-    IdentitiesOnly yes
-    ServerAliveInterval 30
-    ServerAliveCountMax 3
-    ConnectTimeout 5
-    PreferredAuthentications publickey
-
-Host oppo
-    HostName ${NODE_OPPO_HOST}
-    User ${NODE_OPPO_USER}
-    Port ${NODE_OPPO_PORT}
-    IdentityFile ~/.ssh/id_ed25519_node
-    IdentitiesOnly yes
-    ServerAliveInterval 30
-    ServerAliveCountMax 3
-    ConnectTimeout 5
-    PreferredAuthentications publickey
-
-Host redmi
-    HostName ${NODE_REDMI_HOST}
-    User ${NODE_REDMI_USER}
-    Port ${NODE_REDMI_PORT}
-    IdentityFile ~/.ssh/id_ed25519_node
-    IdentitiesOnly yes
-    ServerAliveInterval 30
-    ServerAliveCountMax 3
-    ConnectTimeout 5
-    PreferredAuthentications publickey
-
-Host mumu
-    HostName ${NODE_MUMU_HOST}
-    User ${NODE_MUMU_USER}
-    Port ${NODE_MUMU_PORT}
-    IdentityFile ~/.ssh/id_ed25519_node
-    IdentitiesOnly yes
-    ServerAliveInterval 30
-    ServerAliveCountMax 3
-    ConnectTimeout 5
-    PreferredAuthentications publickey
-
-Host termux
-    HostName ${NODE_TERMUX_HOST}
-    User ${NODE_TERMUX_USER}
-    Port ${NODE_TERMUX_PORT}
-    IdentityFile ~/.ssh/id_ed25519_node
-    IdentitiesOnly yes
-    ServerAliveInterval 30
-    ServerAliveCountMax 3
-    ConnectTimeout 5
-    PreferredAuthentications publickey
-
-Host acodex
-    HostName ${NODE_ACODEX_HOST}
-    User ${NODE_ACODEX_USER}
-    Port ${NODE_ACODEX_PORT}
-    IdentityFile ~/.ssh/id_ed25519_node
-    IdentitiesOnly yes
-    ServerAliveInterval 30
-    ServerAliveCountMax 3
-    ConnectTimeout 5
-    PreferredAuthentications publickey
-
-Host window
-    HostName ${NODE_WIN_HOST}
-    User ${NODE_WIN_USER}
-    Port ${NODE_WIN_PORT}
-    IdentityFile ~/.ssh/id_ed25519_node
-    IdentitiesOnly yes
-    ServerAliveInterval 30
-    ServerAliveCountMax 3
-    ConnectTimeout 5
-    PreferredAuthentications publickey
+${_hosts}
 # <<< JOE_SSOT_MESH_END <<<
 EOF
 )

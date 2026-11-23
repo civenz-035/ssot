@@ -413,12 +413,11 @@ alias t2w="cpt2w"
 # Info
 whichworld() {
   cn 226 b "🌏 Current world: ${_MY_WORLD}  (JOE_ENV: $JOE_ENV)"
-  cn lb    "  WSL:        ${NODE_WSL_USER}@${NODE_WSL_HOST}"
-  cn lb    "  WSL2:       ${NODE_WSL2_USER}@${NODE_WSL2_HOST}"
-  cn lg    "  Termux:     ${NODE_TERMUX_USER}@${NODE_TERMUX_HOST}"
-  cn lm    "  Windows:    ${NODE_WIN_USER}@${NODE_WIN_HOST}"
-  cn m     "  MUMUPlayer: ${NODE_MUMU_USER}@${NODE_MUMU_HOST} (key: id_ed25519_mumu)"
-  cn y     "  OPPO:       ${NODE_OPPO_USER}@${NODE_OPPO_HOST}"
+  local _n
+  for _n in $(ssot_node_names); do
+    ssot_node_resolve "$_n" || continue
+    cn lb "  $(printf '%-12s' "${_n}:") ${SSOT_NODE_USER}@${SSOT_NODE_HOST}:${SSOT_NODE_PORT}"
+  done
 }
 
 # ============================================================

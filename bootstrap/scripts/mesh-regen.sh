@@ -127,14 +127,32 @@ _BLOCK_TMP="$(mktemp)"
     echo "    Ciphers ${_CIPHERS}"
     echo "    MACs ${_MACS}"
     echo ""
-    entry "wsl"    "$WSL_HOST_OUT"  "$NODE_WSL_USER"    "$NODE_WSL_PORT"
-    entry "wsl2"   "$WSL2_HOST_OUT" "$NODE_WSL2_USER"   "$NODE_WSL2_PORT"
-    entry "oppo"   "$NODE_OPPO_HOST"   "$NODE_OPPO_USER"   "$NODE_OPPO_PORT"
-    entry "redmi"  "$NODE_REDMI_HOST"  "$NODE_REDMI_USER"  "$NODE_REDMI_PORT"
-    entry "mumu"   "$NODE_MUMU_HOST"   "$NODE_MUMU_USER"   "$NODE_MUMU_PORT"
-    entry "termux" "$NODE_TERMUX_HOST" "$NODE_TERMUX_USER" "$NODE_TERMUX_PORT"
-    entry "acodex" "$NODE_ACODEX_HOST" "$NODE_ACODEX_USER" "$NODE_ACODEX_PORT"
-    entry "window" "$WIN_HOST_OUT"    "$NODE_WIN_USER"    "$NODE_WIN_PORT"
+    # ทุก node ที่ลงทะเบียน (bootstrap/nodes/*.node.env) — ไม่ hardcode
+    for _nf in "$SSOT"/bootstrap/nodes/*.node.env; do
+        [[ -f "$_nf" ]] || continue
+        _nn="${_nf##*/}"; _nn="${_nn%.node.env}"
+        _nn="$(printf '%s' "$_nn" | tr '[:upper:]' '[:lower:]')"   # ssh alias = lowercase
+        _up="$(printf '%s' "$_nn" | tr '[:lower:]-' '[:upper:]_')"
+        # window.node.env ใช้พรีฟิกซ์ legacy NODE_WIN_*
+        if [[ "$_up" == "WINDOW" && -z "${NODE_WINDOW_HOST:-}" ]]; then
+            _up="WIN"
+        fi
+        eval "_nh=\"\${NODE_${_up}_HOST:-\${NODE_${_up}_IP:-}}\""
+        eval "_nu=\"\${NODE_${_up}_USER:-}\""
+        eval "_np=\"\${NODE_${_up}_PORT:-22}\""
+        [[ -z "$_nh" ]] && continue
+        case "$_nn" in
+            wsl|wsl2)
+                if [[ "$LOCALHOST_WSL" == "true" ]] || [[ "$CURRENT_IS_WSL" == "true" ]]; then
+                    _nh="127.0.0.1"
+                fi
+                ;;
+            window)
+                [[ "$LOCALHOST_WSL" == "true" ]] && _nh="127.0.0.1"
+                ;;
+        esac
+        entry "$_nn" "$_nh" "$_nu" "$_np"
+    done
     echo "# <<< JOE_SSOT_MESH_END <<<"
 } > "$_BLOCK_TMP"
 

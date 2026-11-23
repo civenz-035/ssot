@@ -1401,58 +1401,78 @@ fm_world() {
     "ping          |ทดสอบว่าเครื่องอื่นออนไลน์อยู่หรือไม่ (Latency)" \
     "env vars      |ใช้ค่า IP/USER จาก 00-env.sh (SSOT)"
 
-  local world
+  local world _n
   case "$JOE_ENV" in
     TERMUX)   world="termux" ;;
     WSL)      world="wsl" ;;
+    WSL2)     world="wsl2" ;;
     GIT-BASH) world="git-bash" ;;
     MUMU)     world="mumu" ;;
+    OPPO)     world="oppo" ;;
+    REDMI)    world="redmi" ;;
+    ACODEX)   world="acodex" ;;
     *)        world="unknown" ;;
   esac
 
   echo ""
   printf '%s\n' "$(c 87 b '  🌏 Current World:') $(c 226 b "${world}") $(c 244 d "(JOE_ENV=$JOE_ENV)")"
   _sep
-  printf "  %s  %s\n" "$(c 244 d "$(printf '%-12s' 'WSL:')")"    "${NODE_WSL_USER:-user}@${NODE_WSL_HOST:-wsl}"
-  printf "  %s  %s\n" "$(c 244 d "$(printf '%-12s' 'Termux:')")" "${NODE_TERMUX_USER:-user}@${NODE_TERMUX_HOST:-termux}"
-  printf "  %s  %s\n" "$(c 244 d "$(printf '%-12s' 'Windows:')")" "${NODE_WIN_USER:-User}@${NODE_WIN_HOST:-window}"
+  for _n in $(ssot_node_names); do
+    ssot_node_resolve "$_n" || continue
+    printf "  %s  %s\n" "$(c 244 d "$(printf '%-12s' "${_n}:")")" "${SSOT_NODE_USER}@${SSOT_NODE_HOST}:${SSOT_NODE_PORT}"
+  done
   echo ""
 }
 
 fm_ssh() {
-  local target="${1:?Usage: fm ssh <win|wsl|wsl2|tm|mm|oppo|acodex>}"
+  local target="${1:?Usage: fm ssh <node> [command...]}"
   shift
   _learn_box "fm ssh — เชื่อมต่อผ่าน Secure Shell" \
     "ssh -p <port> <user>@<ip>" \
     "ssh           |Secure Shell — เข้ารหัสข้อมูลทั้งหมดที่ส่งผ่าน network" \
     "-p <port>     |ระบุ port ตาม Node Mesh" \
-    "(shortcut)    |fm ssh tm, fm ssh wsl, fm ssh wsl2, fm ssh oppo, fm ssh mm, fm ssh win"
+    "(shortcut)    |fm ssh tm, fm ssh wsl, fm ssh acodex, fm ssh redmi ฯลฯ"
 
-  case "$target" in
-    tm|termux)  ssh -p "${NODE_TERMUX_PORT:-${SSH_TERMUX_PORT:-8022}}" "${NODE_TERMUX_USER:-u0_a331}@${NODE_TERMUX_HOST:-termux}" "$@" ;;
-    tw|win|window) ssh -p "${NODE_WIN_PORT:-${SSH_WIN_PORT:-22}}" "${NODE_WIN_USER:-User}@${NODE_WIN_HOST:-window}" "$@" ;;
-    wsl)        ssh -p "${NODE_WSL_PORT:-${SSH_WSL_PORT:-2222}}" "${NODE_WSL_USER:-usercivenz}@${NODE_WSL_HOST:-wsl}" "$@" ;;
-    wsl2)       ssh -p "${NODE_WSL2_PORT:-${SSH_WSL2_PORT:-2223}}" "${NODE_WSL2_USER:-joez}@${NODE_WSL2_HOST:-wsl2}" "$@" ;;
-    mm|mumu)    ssh -p "${NODE_MUMU_PORT:-${SSH_MUMU_PORT:-8020}}" "${NODE_MUMU_USER:-u0_a62}@${NODE_MUMU_HOST:-mumu}" "$@" ;;
-    oppo)       ssh -p "${NODE_OPPO_PORT:-${SSH_OPPO_PORT:-8023}}" "${NODE_OPPO_USER:-u0_a88}@${NODE_OPPO_HOST:-oppo}" "$@" ;;
-    acodex)     ssh -p "${NODE_ACODEX_PORT:-${SSH_ACODEX_PORT:-8021}}" "${NODE_ACODEX_USER:-root}@${NODE_ACODEX_HOST:-termux}" "$@" ;;
-    *)          _err "ไม่รู้จักเป้าหมาย: $target (ใช้: win, wsl, wsl2, tm, mm, oppo, acodex)" ;;
-  esac
+  if declare -f ssot_node_resolve >/dev/null 2>&1 && ssot_node_resolve "$target"; then
+    ssh -p "${SSOT_NODE_PORT:-22}" "${SSOT_NODE_USER}@${SSOT_NODE_HOST}" "$@"
+  else
+    _err "ไม่รู้จักเป้าหมาย: $target (nodes: $(ssot_node_names 2>/dev/null | tr '\n' ' '))"
+    return 1
+  fi
+}
+
+# ── ปลายทางของ fm push/pull/rls/rrun
+# default = peer ที่ลงทะเบียนไว้และไม่ใช่เครื่องนี้ (registry-driven)
+_fm_target_vars() {
+  local _node="${1:-}"
+  if [[ -z "$_node" ]]; then
+    _node="$(ssot_node_default_peer 2>/dev/null)" || return 1
+  fi
+  ssot_node_resolve "$_node" || return 1
+  r_user="$SSOT_NODE_USER"
+  r_ip="$SSOT_NODE_HOST"
+  r_port="${SSOT_NODE_PORT:-22}"
+  r_name="$SSOT_NODE_TAG"
+  r_proto="$SSOT_NODE_PROTO"
+  return 0
+}
+
+_fm_is_node() {
+  declare -f ssot_node_norm >/dev/null 2>&1 && ssot_node_norm "${1:-}" >/dev/null 2>&1
+}
+
+_fm_is_remote_node() {
+  case "${1:-}" in ""|.|local|/*|~*|./*) return 1 ;; esac
+  _fm_is_node "$1"
 }
 
 fm_push() {
-  local src="${1:?Usage: fm push <local_path> [remote_dest]}"
+  local node=""
+  if [[ $# -ge 2 ]] && _fm_is_node "$1"; then node="$1"; shift; fi
+  local src="${1:?Usage: fm push [node] <local_path> [remote_dest]}"
   local dst="${2:-.}"
-  local r_user r_ip r_port r_name
-
-  case "$JOE_ENV" in
-    TERMUX|MUMU)
-      r_user="${NODE_WSL_USER:-usercivenz}"; r_ip="${NODE_WSL_HOST:-wsl}"; r_port="${NODE_WSL_PORT:-${SSH_WSL_PORT:-2222}}"; r_name="WSL"
-      ;;
-    *)
-      r_user="${NODE_TERMUX_USER:-u0_a331}"; r_ip="${NODE_TERMUX_HOST:-termux}"; r_port="${NODE_TERMUX_PORT:-${SSH_TERMUX_PORT:-8022}}"; r_name="Termux"
-      ;;
-  esac
+  local r_user r_ip r_port r_name r_proto
+  _fm_target_vars "$node" || { _err "ไม่พบ node ปลายทาง (bootstrap/nodes/*.node.env)"; return 1; }
 
   _learn_box "fm push — ส่งไฟล์ไป $r_name" \
     "rsync -az --info=progress2 -e 'ssh -p $r_port' \"$src\" \"user@ip:$dst\"" \
@@ -1460,7 +1480,7 @@ fm_push() {
     "-e 'ssh -p'   |ระบุ port ของเครื่องปลายทาง ($r_port)"
 
   _step "Pushing: $src → $r_name:$dst"
-  if [[ "${_SSOT_HAS_RSYNC:-0}" -eq 1 ]]; then
+  if [[ "$r_proto" == "rsync" ]]; then
     rsync -az --update --info=progress2 -e "ssh -p $r_port" "$src" "${r_user}@${r_ip}:$dst" && _ok "Push สำเร็จ"
   else
     scp -P "$r_port" -r "$src" "${r_user}@${r_ip}:$dst" && _ok "Push สำเร็จ (scp)"
@@ -1468,25 +1488,19 @@ fm_push() {
 }
 
 fm_pull() {
-  local src="${1:?Usage: fm pull <remote_path> [local_dest]}"
+  local node=""
+  if [[ $# -ge 2 ]] && _fm_is_node "$1"; then node="$1"; shift; fi
+  local src="${1:?Usage: fm pull [node] <remote_path> [local_dest]}"
   local dst="${2:-.}"
-  local r_user r_ip r_port r_name
-
-  case "$JOE_ENV" in
-    TERMUX|MUMU)
-      r_user="${NODE_WSL_USER:-usercivenz}"; r_ip="${NODE_WSL_HOST:-wsl}"; r_port="${NODE_WSL_PORT:-${SSH_WSL_PORT:-2222}}"; r_name="WSL"
-      ;;
-    *)
-      r_user="${NODE_TERMUX_USER:-u0_a331}"; r_ip="${NODE_TERMUX_HOST:-termux}"; r_port="${NODE_TERMUX_PORT:-${SSH_TERMUX_PORT:-8022}}"; r_name="Termux"
-      ;;
-  esac
+  local r_user r_ip r_port r_name r_proto
+  _fm_target_vars "$node" || { _err "ไม่พบ node ต้นทาง (bootstrap/nodes/*.node.env)"; return 1; }
 
   _learn_box "fm pull — ดึงไฟล์จาก $r_name" \
     "rsync -az --info=progress2 -e 'ssh -p $r_port' \"user@ip:$src\" \"$dst\"" \
     "Pull          |ดึง code ที่แก้ใน $r_name กลับมาที่เครื่องปัจจุบัน"
 
   _step "Pulling: $r_name:$src → $dst"
-  if [[ "${_SSOT_HAS_RSYNC:-0}" -eq 1 ]]; then
+  if [[ "$r_proto" == "rsync" ]]; then
     rsync -az --update --info=progress2 -e "ssh -p $r_port" "${r_user}@${r_ip}:$src" "$dst" && _ok "Pull สำเร็จ"
   else
     scp -P "$r_port" -r "${r_user}@${r_ip}:$src" "$dst" && _ok "Pull สำเร็จ (scp)"
@@ -1494,17 +1508,11 @@ fm_pull() {
 }
 
 fm_rls() {
+  local node=""
+  if [[ $# -ge 1 ]] && _fm_is_node "$1"; then node="$1"; shift; fi
   local path="${1:-~}"
-  local r_user r_ip r_port r_name
-
-  case "$JOE_ENV" in
-    TERMUX|MUMU)
-      r_user="${NODE_WSL_USER:-usercivenz}"; r_ip="${NODE_WSL_HOST:-wsl}"; r_port="${NODE_WSL_PORT:-22}"; r_name="WSL"
-      ;;
-    *)
-      r_user="${NODE_TERMUX_USER:-}"; r_ip="${NODE_TERMUX_HOST:-termux}"; r_port="${NODE_TERMUX_PORT:-8022}"; r_name="Termux"
-      ;;
-  esac
+  local r_user r_ip r_port r_name r_proto
+  _fm_target_vars "$node" || { _err "ไม่พบ node ปลายทาง (bootstrap/nodes/*.node.env)"; return 1; }
 
   _learn_box "fm rls — ดูไฟล์ใน $r_name" \
     "ssh -p $r_port user@ip 'ls -lah $path'" \
@@ -1512,29 +1520,23 @@ fm_rls() {
 
   _info "$r_name Files in $path :"
   echo ""
-  ssh -p $r_port "${r_user}@${r_ip}" "ls -lah '$path'"
+  ssh -p "$r_port" "${r_user}@${r_ip}" "ls -lah '$path'"
   echo ""
 }
 
 fm_rrun() {
-  [[ $# -eq 0 ]] && { _err "Usage: fm rrun <command>"; return 1; }
-  local r_user r_ip r_port r_name
-
-  case "$JOE_ENV" in
-    TERMUX|MUMU)
-      r_user="${NODE_WSL_USER:-usercivenz}"; r_ip="${NODE_WSL_HOST:-wsl}"; r_port="${NODE_WSL_PORT:-22}"; r_name="WSL"
-      ;;
-    *)
-      r_user="${NODE_TERMUX_USER:-}"; r_ip="${NODE_TERMUX_HOST:-termux}"; r_port="${NODE_TERMUX_PORT:-8022}"; r_name="Termux"
-      ;;
-  esac
+  local node=""
+  if [[ $# -ge 1 ]] && _fm_is_node "$1"; then node="$1"; shift; fi
+  [[ $# -eq 0 ]] && { _err "Usage: fm rrun [node] <command>"; return 1; }
+  local r_user r_ip r_port r_name r_proto
+  _fm_target_vars "$node" || { _err "ไม่พบ node ปลายทาง (bootstrap/nodes/*.node.env)"; return 1; }
 
   _learn_box "fm rrun — รันคำสั่งบน $r_name" \
     "ssh -p $r_port user@ip \"$*\"" \
     "\"\$*\"          |ส่งคำสั่งทั้งหมดไปรันที่ $r_name"
 
   _step "Remote Run on $r_name: $*"
-  ssh -p $r_port "${r_user}@${r_ip}" "$@"
+  ssh -p "$r_port" "${r_user}@${r_ip}" "$@"
 }
 
 # ═════════════════════════════════════════════════════════════════
@@ -1605,7 +1607,8 @@ fm() {
   local cmd="${1:-help}"
   shift 2>/dev/null
   case "$cmd" in
-    ls)          fm_ls "$@"         ;;
+    ls)
+      if _fm_is_remote_node "${1:-}"; then _fm_node_ls "$@"; else fm_ls "$@"; fi ;;
     lsa)         fm_lsa "$@"        ;;
     tree)        fm_tree "$@"       ;;
     goto)        fm_goto "$@"       ;;
@@ -1613,8 +1616,10 @@ fm() {
     home)        fm_home            ;;
     pwd)         fm_pwd             ;;
     cp)          fm_cp "$@"         ;;
-    mv)          fm_mv "$@"         ;;
-    rm)          fm_rm "$@"         ;;
+    mv)
+      if _fm_is_remote_node "${1:-}"; then _fm_node_mv "$@"; else fm_mv "$@"; fi ;;
+    rm)
+      if _fm_is_remote_node "${1:-}"; then _fm_node_rm "$@"; else fm_rm "$@"; fi ;;
     rn)          fm_rn "$@"         ;;
     mk)          fm_mk "$@"         ;;
     mkdir)       fm_mkdir "$@"      ;;
@@ -1624,7 +1629,13 @@ fm() {
     grep)        fm_grep "$@"       ;;
     findext)     fm_findext "$@"    ;;
     findsize)    fm_findsize "$@"   ;;
-    info)        fm_info "$@"       ;;
+    info)
+      if [[ $# -eq 0 ]]; then _fm_node_info; else fm_info "$@"; fi ;;
+    check|ping)  fm_check "$@"      ;;
+    send)        fm_send "$@"       ;;
+    sync)        fm_sync "$@"       ;;
+    exec)        fm_exec "$@"       ;;
+    nodes|node)  _fm_node_info      ;;
     size)        fm_size "$@"       ;;
     recent)      fm_recent "$@"     ;;
     big)         fm_big "$@"        ;;
@@ -1660,6 +1671,11 @@ fm() {
     block|dblock) dynamic_block "$@" ;;
     help|--help|-h|"") fm_help "$@" ;;
     *)
+      # คำสั่ง cross-device (send/check/sync/exec/...) → fn() ใน files_manage.sh
+      if declare -f fn >/dev/null 2>&1; then
+        fn "$cmd" "$@"
+        return $?
+      fi
       _err "ไม่รู้จักคำสั่ง: $cmd"
       printf '%s\n' "$(c 244 d '  พิมพ์ ')$(c 51 b 'fm help')$(c 244 d ' เพื่อดูรายการคำสั่งทั้งหมด')"
       return 1
@@ -1757,34 +1773,9 @@ _xfm_lower() {
 # MACHINE CONFIG — อ้างอิงจาก 00-env.sh (SSOT) เท่านั้น
 # ห้าม hardcode ค่าที่นี่ — แก้ที่ 00-env.sh แทน
 # ─────────────────────────────────────────────────────────────────
-xfm_WIN_HOST="${NODE_WIN_HOST:-${NODE_WIN_IP:-${WINDOWS_IP:-window}}}"
-xfm_WIN_USER="${NODE_WIN_USER:-${WINDOWS_USER:-User}}"
-xfm_WIN_PORT="${NODE_WIN_PORT:-${SSH_WIN_PORT:-22}}"
-
-xfm_WSL_HOST="${NODE_WSL_HOST:-${NODE_WSL_IP:-${WSL_IP:-wsl}}}"
-xfm_WSL_USER="${NODE_WSL_USER:-${WSL_USER:-usercivenz}}"
-xfm_WSL_PORT="${NODE_WSL_PORT:-${SSH_WSL_PORT:-2222}}"
-
-xfm_WSL2_HOST="${NODE_WSL2_HOST:-${NODE_WSL2_IP:-${WSL2_IP:-wsl2}}}"
-xfm_WSL2_USER="${NODE_WSL2_USER:-${WSL2_USER:-joez}}"
-xfm_WSL2_PORT="${NODE_WSL2_PORT:-${SSH_WSL2_PORT:-2223}}"
-
-xfm_TM_HOST="${NODE_TERMUX_HOST:-${NODE_TERMUX_IP:-${TERMUX_IP:-termux}}}"
-xfm_TM_USER="${NODE_TERMUX_USER:-${TERMUX_USER:-u0_a331}}"
-xfm_TM_PORT="${NODE_TERMUX_PORT:-${SSH_TERMUX_PORT:-8022}}"
-
-xfm_MM_HOST="${NODE_MUMU_HOST:-${NODE_MUMU_IP:-${MUMU_IP:-mumu}}}"
-xfm_MM_USER="${NODE_MUMU_USER:-${MUMU_USER:-u0_a62}}"
-xfm_MM_PORT="${NODE_MUMU_PORT:-${SSH_MUMU_PORT:-8020}}"
-
-xfm_OPPO_HOST="${NODE_OPPO_HOST:-${NODE_OPPO_IP:-${OPPO_IP:-oppo}}}"
-xfm_OPPO_USER="${NODE_OPPO_USER:-${OPPO_USER:-u0_a88}}"
-xfm_OPPO_PORT="${NODE_OPPO_PORT:-${SSH_OPPO_PORT:-8023}}"
-
-xfm_ACODEX_HOST="${NODE_ACODEX_HOST:-${NODE_ACODEX_IP:-${ACODEX_IP:-termux}}}"
-xfm_ACODEX_USER="${NODE_ACODEX_USER:-${ACODEX_USER:-root}}"
-xfm_ACODEX_PORT="${NODE_ACODEX_PORT:-${SSH_ACODEX_PORT:-8021}}"
-
+# MACHINE CONFIG — ดึงจาก registry (core/node-mesh.sh) ทั้งหมด
+# เพิ่มเครื่องใหม่ = drop bootstrap/nodes/<name>.node.env ไม่ต้องแก้ไฟล์นี้
+# คงเหลือเฉพาะ Debian ที่ยังไม่มี node profile
 xfm_DEB_HOST="${NODE_DEBIAN_HOST:-${DEBIAN_IP:-debian}}"
 xfm_DEB_USER="${NODE_DEBIAN_USER:-${DEBIAN_USER:-root}}"
 xfm_DEB_PORT="${NODE_DEBIAN_PORT:-${DEBIAN_PORT:-22}}"
@@ -1795,56 +1786,43 @@ xfm_DEB_PORT="${NODE_DEBIAN_PORT:-${DEBIAN_PORT:-22}}"
 # MACHINE RESOLVER HELPERS
 # ─────────────────────────────────────────────────────────────────
 
-# รับ nickname → คืน Hostname หรือ IP
+# รับ nickname → คืน Hostname หรือ IP (registry-driven)
 _xfm_host() {
   case "$(_xfm_lower "$1")" in
-    win|windows|window|git-bash|gb) echo "$xfm_WIN_HOST" ;;
-    wsl)                            echo "$xfm_WSL_HOST" ;;
-    wsl2)                           echo "$xfm_WSL2_HOST" ;;
-    tm|termux)                      echo "$xfm_TM_HOST"  ;;
-    mm|mumu)                        echo "$xfm_MM_HOST"  ;;
-    oppo)                           echo "$xfm_OPPO_HOST" ;;
-    acodex)                         echo "$xfm_ACODEX_HOST" ;;
-    deb|debian)                     echo "$xfm_DEB_HOST" ;;
-    local|.)                        echo "localhost"     ;;
-    *) return 1 ;;
+    deb|debian) printf '%s' "$xfm_DEB_HOST"; return 0 ;;
   esac
+  if declare -f ssot_node_resolve >/dev/null 2>&1 && ssot_node_resolve "$1" 2>/dev/null; then
+    printf '%s' "$SSOT_NODE_HOST"; return 0
+  fi
+  return 1
 }
 
 # รับ nickname → คืน username
 _xfm_user() {
   case "$(_xfm_lower "$1")" in
-    win|windows|window|git-bash|gb) echo "$xfm_WIN_USER" ;;
-    wsl)                            echo "$xfm_WSL_USER" ;;
-    wsl2)                           echo "$xfm_WSL2_USER" ;;
-    tm|termux)                      echo "$xfm_TM_USER"  ;;
-    mm|mumu)                        echo "$xfm_MM_USER"  ;;
-    oppo)                           echo "$xfm_OPPO_USER" ;;
-    acodex)                         echo "$xfm_ACODEX_USER" ;;
-    deb|debian)                     echo "$xfm_DEB_USER" ;;
-    local|.)                        echo "${USER:-$USERNAME}" ;;
-    *) return 1 ;;
+    deb|debian) printf '%s' "$xfm_DEB_USER"; return 0 ;;
   esac
+  if declare -f ssot_node_resolve >/dev/null 2>&1 && ssot_node_resolve "$1" 2>/dev/null; then
+    printf '%s' "$SSOT_NODE_USER"; return 0
+  fi
+  return 1
 }
 
 # รับ nickname → คืน SSH port
 _xfm_port() {
   case "$(_xfm_lower "$1")" in
-    win|windows|window|git-bash|gb) echo "$xfm_WIN_PORT" ;;
-    wsl)                            echo "$xfm_WSL_PORT" ;;
-    wsl2)                           echo "$xfm_WSL2_PORT" ;;
-    tm|termux)                      echo "$xfm_TM_PORT"  ;;
-    mm|mumu)                        echo "$xfm_MM_PORT"  ;;
-    oppo)                           echo "$xfm_OPPO_PORT" ;;
-    acodex)                         echo "$xfm_ACODEX_PORT" ;;
-    deb|debian)                     echo "$xfm_DEB_PORT" ;;
-    local|.)                        echo ""              ;;
-    *) return 1 ;;
+    deb|debian) printf '%s' "$xfm_DEB_PORT"; return 0 ;;
+    local|.)    printf '%s' ""; return 0 ;;
   esac
+  if declare -f ssot_node_resolve >/dev/null 2>&1 && ssot_node_resolve "$1" 2>/dev/null; then
+    printf '%s' "$SSOT_NODE_PORT"; return 0
+  fi
+  return 1
 }
 
 # รับ nickname → คืนชื่อแสดงผลสวยๆ
 _xfm_label() {
+  local _ln=""
   case "$(_xfm_lower "$1")" in
     win|windows|window|git-bash|gb) cn 75 b "🖥️  win"     ;;
     wsl)                            cn 46 b "🐧  wsl"     ;;
@@ -1855,14 +1833,21 @@ _xfm_label() {
     acodex)                         cn 141 b "💻  acodex"  ;;
     deb|debian)                     cn 87 b "🔷  deb"     ;;
     local|.)                        cn 255 b "💻  local"   ;;
-    *)                              cn 244 "" "❓  $1"     ;;
+    *)
+      if _ln="$(ssot_node_norm "$1" 2>/dev/null)"; then
+        cn 244 "" "💻  $_ln"
+      else
+        cn 244 "" "❓  $1"
+      fi
+      ;;
   esac
 }
 
-# Validate machine name
+# Validate machine name (registry-driven)
 _xfm_valid() {
+  declare -f ssot_node_norm >/dev/null 2>&1 && ssot_node_norm "$1" >/dev/null 2>&1 && return 0
   case "$(_xfm_lower "$1")" in
-    win|windows|window|git-bash|gb|wsl|wsl2|tm|termux|mm|mumu|oppo|acodex|deb|debian|local|.) return 0 ;;
+    deb|debian|local|.) return 0 ;;
     *) return 1 ;;
   esac
 }
@@ -2027,23 +2012,24 @@ xfm_help() {
   echo ""
   cn 87 "  ╔══════════════════════════════════════════════════════════════════╗"
   printf '%s\n' "$(c 87 b '  ║')  $(c 255 b '🌐  xfm — Cross-Machine File Manager  v2.0')                    $(c 87 b '║')"
-  printf '%s\n' "$(c 87 b '  ║')  $(c 244 d 'Node Mesh: win │ wsl │ wsl2 │ tm │ mm │ oppo │ acodex')          $(c 87 b '║')"
+  printf '%s\n' "$(c 87 b '  ║')  $(c 244 d 'Node Mesh: bootstrap/nodes/*.node.env (auto)')            $(c 87 b '║')"
   cn 87 "  ╚══════════════════════════════════════════════════════════════════╝"
 
   echo ""
-  cn 141 "  🏷️   MACHINE NICKNAMES"
+  cn 141 "  🏷️   MACHINE NICKNAMES (auto from bootstrap/nodes/*.node.env)"
   hline 66
-  ctab "1:10 51:24 2:10 0:0" "ALIAS" "HOST / USER" "PORT" "MACHINE"
+  ctab "1:22 51:26 2:10 0:0" "NODE" "HOST / USER" "PORT" "MACHINE"
   hline 66
-  ctab "75:10 244:24 2:10 0:0"  "win"       "$xfm_WIN_USER@$xfm_WIN_HOST" "$xfm_WIN_PORT" "🖥️  Windows"
-  ctab "46:10 244:24 2:10 0:0"  "wsl"       "$xfm_WSL_USER@$xfm_WSL_HOST" "$xfm_WSL_PORT" "🐧  WSL"
-  ctab "46:10 244:24 2:10 0:0"  "wsl2"      "$xfm_WSL2_USER@$xfm_WSL2_HOST" "$xfm_WSL2_PORT" "🐧  WSL2"
-  ctab "226:10 244:24 2:10 0:0" "tm"        "$xfm_TM_USER@$xfm_TM_HOST"   "$xfm_TM_PORT"  "📱  Termux (Android)"
-  ctab "208:10 244:24 2:10 0:0" "mm"        "$xfm_MM_USER@$xfm_MM_HOST"   "$xfm_MM_PORT"  "🎮  MuMu (Android VM)"
-  ctab "214:10 244:24 2:10 0:0" "oppo"      "$xfm_OPPO_USER@$xfm_OPPO_HOST" "$xfm_OPPO_PORT" "📱  OPPO (Android)"
-  ctab "141:10 244:24 2:10 0:0" "acodex"    "$xfm_ACODEX_USER@$xfm_ACODEX_HOST" "$xfm_ACODEX_PORT" "💻  AcodeX"
-  ctab "87:10 244:24 2:10 0:0"  "deb"       "$xfm_DEB_USER@$xfm_DEB_HOST" "$xfm_DEB_PORT" "🔷  Debian (proot)"
-  ctab "255:10 244:24 2:10 0:0" "local / ." "${USER:-$USERNAME}@localhost" "-"           "💻  เครื่องนี้"
+  local _mn _mh _mu _mp _mark=""
+  for _mn in $(ssot_node_names); do
+    ssot_node_resolve "$_mn" || continue
+    _mh="$SSOT_NODE_HOST"; _mu="$SSOT_NODE_USER"; _mp="$SSOT_NODE_PORT"
+    _mark=""
+    [[ "${SSOT_NODE_LOCAL:-0}" == "1" ]] && _mark=" *"
+    ctab "75:22 244:26 2:10 0:0" "${_mn}${_mark}" "${_mu}@${_mh}" "${_mp}" "$(_xfm_label "$_mn")"
+  done
+  ctab "87:22 244:26 2:10 0:0"  "deb"       "$xfm_DEB_USER@$xfm_DEB_HOST" "$xfm_DEB_PORT" "🔷  Debian (proot)"
+  ctab "255:22 244:26 2:10 0:0" "local / ." "${USER:-$USERNAME}@localhost" "-"           "💻  เครื่องนี้"
   hline 66
 
   echo ""
@@ -2095,7 +2081,9 @@ xfm_status() {
   ctab "1:6 1:22 1:6 1:8 1:10 1:0" "NAME" "CONNECTION" "PORT" "LATENCY" "DISK USE" "STATUS"
   _sep
 
-  local machines=("win" "wsl" "wsl2" "tm" "mm" "oppo" "acodex")
+  local machines=()
+  local _mn
+  for _mn in $(ssot_node_names); do machines+=("$_mn"); done
   for m in "${machines[@]}"; do
     local host user port label conn_str
     host=$(_xfm_host "$m")
@@ -2401,11 +2389,16 @@ xfm_df() {
     "(all)          |xfm loop ทุก machine และรัน df พร้อมกัน (background &)" \
     "(parallel)     |ส่ง SSH request ทุกเครื่องพร้อมกัน แล้วรอ output ทีเดียว"
 
-  local machines=("win" "wsl" "wsl2" "tm" "mm" "oppo" "acodex")
-  [[ "$target" != "all" ]] && machines=("$target")
+  local machines=()
+  local _mn
+  if [[ "$target" == "all" ]]; then
+    for _mn in $(ssot_node_names); do machines+=("$_mn"); done
+  else
+    machines=("$target")
+  fi
 
   for m in "${machines[@]}"; do
-    _xfm_valid "$m" || { _err "ไม่รู้จัก machine: $m"; continue; }
+    _xfm_valid "$m" || { _err "ไม่รู้จัก machine: $m (nodes: $(ssot_node_names | tr '\n' ' '))"; continue; }
     echo ""
     echo -e "  $(_xfm_label "$m")  \e[2m$(_xfm_conn_str "$m")\e[0m"
     _sep

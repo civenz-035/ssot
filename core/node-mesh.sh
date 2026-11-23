@@ -63,6 +63,133 @@ if [[ -f "${_SSOT_ROOT}/bootstrap/nodes/loader.sh" ]]; then
 fi
 
 # ============================================================
+# 3b. GENERIC NODE RESOLVER (registry-driven — no hardcoding)
+# ============================================================
+# ทุกเครื่องที่ drop bootstrap/nodes/<name>.node.env จะถูกเรียกใช้
+# ได้จาก fm() / xfm() / fm_* อัตโนมัติ โดยไม่ต้องแก้โค้ด
+# ลำดับ: alias → ชื่อจริง → อ่าน NODE_<NAME>_{HOST,USER,PORT,IP}
+
+# ชื่อ node ทั้งหมดที่ลงทะเบียน (lowercase, เรียงแล้ว, บรรทัดละชื่อ)
+ssot_node_names() {
+    local _n
+    local -a _names=()
+    if declare -p SSOT_REGISTERED_NODES >/dev/null 2>&1 && [[ ${#SSOT_REGISTERED_NODES[@]} -gt 0 ]]; then
+        _names=("${SSOT_REGISTERED_NODES[@]}")
+    elif [[ -d "${SSOT:-$HOME/ssot}/bootstrap/nodes" ]]; then
+        for _n in "${SSOT:-$HOME/ssot}"/bootstrap/nodes/*.node.env; do
+            [[ -f "$_n" ]] || continue
+            _n="${_n##*/}"
+            _names+=("${_n%.node.env}")
+        done
+    fi
+    [[ ${#_names[@]} -eq 0 ]] && return 0
+    printf '%s\n' "${_names[@]}" | tr '[:upper:]' '[:lower:]' | LC_ALL=C sort -u
+}
+
+# อ่าน field เดียวของ node  เช่น ssot_node_var redmi PORT
+ssot_node_var() {
+    local _name="$1" _field="$2" _up _var _val
+    _name="$(printf '%s' "$_name"  | tr -cd 'A-Za-z0-9_-')"
+    _field="$(printf '%s' "$_field" | tr -cd 'A-Za-z0-9_')"
+    _up="$(printf '%s' "$_name" | tr '[:lower:]-' '[:upper:]_')"
+    # window.node.env เก็บพรีฟิกซ์แบบ legacy: NODE_WIN_*
+    if [[ "$_up" == "WINDOW" && -z "${NODE_WINDOW_HOST:-}" ]]; then
+        _up="WIN"
+    fi
+    _var="NODE_${_up}_${_field}"
+    eval "_val=\"\${${_var}:-}\""
+    printf '%s' "$_val"
+}
+
+# alias → ชื่อ canonical (คืนชื่อจริงถ้าไม่รู้จัก)
+ssot_node_norm() {
+    local _a _n _hits
+    _a="$(printf '%s' "${1:-}" | tr '[:upper:]' '[:lower:]')"
+    [[ -z "$_a" ]] && return 1
+    case "$_a" in
+        local|.) printf '%s' "local"; return 0 ;;
+    esac
+    # 1) ชื่อจริงใน registry มาก่อน (git-bash ≠ window)
+    for _n in $(ssot_node_names); do
+        [[ "$_n" == "$_a" ]] && { printf '%s' "$_n"; return 0; }
+    done
+    # 2) alias สั้น
+    case "$_a" in
+        t|tm|term)              printf '%s' "termux"; return 0 ;;
+        w)                      printf '%s' "wsl";    return 0 ;;
+        w2)                     printf '%s' "wsl2";   return 0 ;;
+        tw|win|windows|gb|gitbash) printf '%s' "window"; return 0 ;;
+        m|mm)                   printf '%s' "mumu";   return 0 ;;
+        o|op)                   printf '%s' "oppo";   return 0 ;;
+        r|rd)                   printf '%s' "redmi";  return 0 ;;
+        ac|ax)                  printf '%s' "acodex"; return 0 ;;
+        deb|debian)             printf '%s' "debian"; return 0 ;;
+    esac
+    # 3) unique prefix  เช่น "gcl" → gcloud, "cs" → cs-…
+    _hits=""
+    for _n in $(ssot_node_names); do
+        [[ "$_n" == "$_a"* ]] && _hits="$_hits $_n"
+    done
+    _hits="${_hits# }"
+    if [[ -n "$_hits" && "$_hits" != *" "* ]]; then
+        printf '%s' "$_hits"; return 0
+    fi
+    return 1
+}
+
+# resolve alias → ตัวแปร SSOT_NODE_{NAME,TAG,HOST,USER,PORT,IP,PROTO,LOCAL}
+ssot_node_resolve() {
+    local _name _host _user _port _ip _tag _proto _local=0
+    _name="$(ssot_node_norm "${1:-}")" || return 1
+    if [[ "$_name" == "local" ]]; then
+        SSOT_NODE_NAME="local";  SSOT_NODE_TAG="LOCAL"
+        SSOT_NODE_HOST="localhost"
+        SSOT_NODE_USER="${USER:-$(id -un 2>/dev/null)}"
+        SSOT_NODE_PORT="";       SSOT_NODE_IP="127.0.0.1"
+        SSOT_NODE_PROTO="rsync"; SSOT_NODE_LOCAL=1
+        return 0
+    fi
+    _tag="$(printf '%s' "$_name" | tr '[:lower:]-' '[:upper:]_')"
+    [[ "$_tag" == "WINDOW" && -z "${NODE_WINDOW_HOST:-}" ]] && _tag="WIN"
+    _host="$(ssot_node_var "$_name" HOST)"
+    [[ -z "$_host" ]] && _host="$(ssot_node_var "$_name" IP)"
+    [[ -z "$_host" ]] && _host="$_name"
+    _user="$(ssot_node_var "$_name" USER)"
+    [[ -z "$_user" ]] && _user="${USER:-$(id -un 2>/dev/null)}"
+    _port="$(ssot_node_var "$_name" PORT)"
+    [[ -z "$_port" ]] && _port="22"
+    _ip="$(ssot_node_var "$_name" IP)"
+    _proto="rsync"
+    command -v rsync >/dev/null 2>&1 || _proto="scp"
+    case "$_name" in
+        window|mumu|oppo) _proto="scp" ;;   # nodes ที่ไม่มี rsync
+    esac
+    [[ "${MY_DEVICE:-}" == "$_name" ]] && _local=1
+    SSOT_NODE_NAME="$_name";  SSOT_NODE_TAG="$_tag"
+    SSOT_NODE_HOST="$_host";  SSOT_NODE_USER="$_user"
+    SSOT_NODE_PORT="$_port";  SSOT_NODE_IP="$_ip"
+    SSOT_NODE_PROTO="$_proto"; SSOT_NODE_LOCAL="$_local"
+    return 0
+}
+
+# peer เริ่มต้นของ fm push/pull (เครื่องอื่นที่ไม่ใช่เครื่องนี้)
+ssot_node_default_peer() {
+    local _me _n
+    _me="$(printf '%s' "${MY_DEVICE:-${JOE_ENV:-}}" | tr '[:upper:]' '[:lower:]')"
+    for _n in wsl termux window acodex mumu oppo redmi; do
+        [[ "$_n" == "$_me" ]] && continue
+        if ssot_node_names | grep -qx "$_n"; then
+            printf '%s' "$_n"; return 0
+        fi
+    done
+    for _n in $(ssot_node_names); do
+        [[ "$_n" == "$_me" || "$_n" == "local" ]] && continue
+        printf '%s' "$_n"; return 0
+    done
+    return 1
+}
+
+# ============================================================
 # 4. CROSS-PLATFORM PATH RESOLUTION (THE 3 WORLDS)
 # ============================================================
 # When transferring files (rsync, scp) cross-device, path format depends on
