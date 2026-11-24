@@ -9,3 +9,6 @@ export MY_DEVICE="${MY_DEVICE:-acodex}"
 export SSOT="${SSOT:-$HOME/ssot}"
 
 [[ -f "$SSOT/profiles/_common/bashrc.sh" ]] && source "$SSOT/profiles/_common/bashrc.sh"
+
+# Added by simulator install script
+[[ -f '/home/simulator/lib/alias.sh' ]] && source '/home/simulator/lib/alias.sh'
