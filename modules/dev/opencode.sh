@@ -9,10 +9,10 @@ export BEDROCK_PROXY_HOST="${BEDROCK_PROXY_HOST:-127.0.0.1}"
 export BEDROCK_PROXY_PORT="${BEDROCK_PROXY_PORT:-4098}"
 
 _oc_get_python() {
-    if command -v python &>/dev/null; then
-        echo "python"
-    elif command -v python3 &>/dev/null; then
+    if command -v python3 &>/dev/null; then
         echo "python3"
+    elif command -v python &>/dev/null; then
+        echo "python"
     else
         echo ""
     fi
@@ -59,7 +59,7 @@ oc_proxy_start() {
     fi
 
     echo "Starting Bedrock Mantle Proxy on ${BEDROCK_PROXY_HOST}:${BEDROCK_PROXY_PORT}..."
-    if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "cygwin" || "$JOE_ENV" == "GIT-BASH" ]]; then
+    if [[ "${OSTYPE:-}" == "msys" || "${OSTYPE:-}" == "cygwin" || "${JOE_ENV:-}" == "GIT-BASH" ]]; then
         cmd //c "start \"\" /b $py \"$script\"" 2>/dev/null
     else
         nohup "$py" "$script" >/dev/null 2>&1 &
@@ -80,8 +80,8 @@ oc_proxy_start() {
 }
 
 oc_proxy_stop() {
-    if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "cygwin" || "$JOE_ENV" == "GIT-BASH" ]]; then
-        powershell.exe -NoProfile -Command "Get-Process -Name python -ErrorAction SilentlyContinue | Where-Object { `$_.CommandLine -like '*bedrock_mantle_proxy*' } | Stop-Process -Force" 2>/dev/null
+    if [[ "${OSTYPE:-}" == "msys" || "${OSTYPE:-}" == "cygwin" || "${JOE_ENV:-}" == "GIT-BASH" ]]; then
+        powershell.exe -NoProfile -Command 'Get-Process -Name python -ErrorAction SilentlyContinue | Where-Object { $_.CommandLine -like "*bedrock_mantle_proxy*" } | Stop-Process -Force' 2>/dev/null
     else
         pkill -f "bedrock_mantle_proxy" 2>/dev/null
     fi
@@ -92,7 +92,7 @@ oc_proxy_install() {
     local ssot_dir="${SSOT_PATH:-${HOME}/ssot}"
     if [[ -f "${ssot_dir}/modules/dev/install.sh" ]]; then
         bash "${ssot_dir}/modules/dev/install.sh"
-    elif [[ -f "${ssot_dir}/modules/dev/install.ps1" && ( "$OSTYPE" == "msys" || "$JOE_ENV" == "GIT-BASH" ) ]]; then
+    elif [[ -f "${ssot_dir}/modules/dev/install.ps1" && ( "${OSTYPE:-}" == "msys" || "${JOE_ENV:-}" == "GIT-BASH" ) ]]; then
         powershell.exe -ExecutionPolicy Bypass -File "${ssot_dir}/modules/dev/install.ps1"
     else
         echo "Install script not found." >&2
