@@ -19,15 +19,19 @@ _oc_get_python() {
 }
 
 _oc_proxy_script() {
-    local ssot_dir="${SSOT_PATH:-${HOME}/ssot}"
+    # Prefer SSOT env var (set by joe.sh), fallback to common paths
+    local ssot_dir="${SSOT:-${SSOT_PATH:-${HOME}/ssot}}"
     local mod_script="${ssot_dir}/modules/opencode/bedrock_mantle_proxy.py"
+    local cache_script="${HOME}/.aws/bedrock_mantle_proxy.py"
     if [[ -f "$mod_script" ]]; then
-        # Always keep ~/.aws/bedrock_mantle_proxy.py updated with latest SSOT script
+        # Always sync latest stdlib proxy from SSOT → cache (eliminates stale OpenSSL version)
         mkdir -p "${HOME}/.aws"
-        cp -p "$mod_script" "${HOME}/.aws/bedrock_mantle_proxy.py" 2>/dev/null || true
-        echo "$mod_script"
+        cp -f "$mod_script" "$cache_script" 2>/dev/null || true
+        echo "$cache_script"
+    elif [[ -f "$cache_script" ]]; then
+        echo "$cache_script"
     else
-        echo "${HOME}/.aws/bedrock_mantle_proxy.py"
+        echo ""
     fi
 }
 
