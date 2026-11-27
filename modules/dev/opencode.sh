@@ -28,6 +28,10 @@ _oc_proxy_script() {
     fi
 }
 
+_oc_log_file() {
+    echo "${HOME}/.aws/bedrock_proxy.log"
+}
+
 oc_proxy_status() {
     if curl -sf "http://${BEDROCK_PROXY_HOST}:${BEDROCK_PROXY_PORT}/health" &>/dev/null; then
         echo "Bedrock Mantle Proxy is RUNNING on http://${BEDROCK_PROXY_HOST}:${BEDROCK_PROXY_PORT}"
@@ -58,11 +62,29 @@ oc_proxy_start() {
         return 1
     fi
 
+    # Auto-link credentials from Windows host on WSL if missing
+    if [[ ! -f "${HOME}/.aws/credentials" && -d "/mnt/c/Users" ]]; then
+        for u in /mnt/c/Users/*/.aws; do
+            if [[ -f "${u}/credentials" ]]; then
+                mkdir -p "${HOME}/.aws"
+                cp -p "${u}/credentials" "${HOME}/.aws/credentials"
+                [[ -f "${u}/config" ]] && cp -p "${u}/config" "${HOME}/.aws/config"
+                chmod 600 "${HOME}/.aws/credentials"
+                echo "Imported AWS credentials from Windows host."
+                break
+            fi
+        done
+    fi
+
+    mkdir -p "${HOME}/.aws"
+    local log_file
+    log_file="$(_oc_log_file)"
+
     echo "Starting Bedrock Mantle Proxy on ${BEDROCK_PROXY_HOST}:${BEDROCK_PROXY_PORT}..."
     if [[ "${OSTYPE:-}" == "msys" || "${OSTYPE:-}" == "cygwin" || "${JOE_ENV:-}" == "GIT-BASH" ]]; then
         cmd //c "start \"\" /b $py \"$script\"" 2>/dev/null
     else
-        nohup "$py" "$script" >/dev/null 2>&1 &
+        nohup "$py" "$script" > "$log_file" 2>&1 &
     fi
 
     local count=0
@@ -76,6 +98,11 @@ oc_proxy_start() {
     done
 
     echo "Warning: Proxy started but healthcheck timed out. Check AWS credentials (~/.aws/credentials)." >&2
+    if [[ -f "$log_file" ]]; then
+        echo "--- Last log output (${log_file}) ---" >&2
+        tail -n 8 "$log_file" >&2
+        echo "------------------------------------" >&2
+    fi
     return 1
 }
 
