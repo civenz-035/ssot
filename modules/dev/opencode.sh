@@ -22,6 +22,9 @@ _oc_proxy_script() {
     local ssot_dir="${SSOT_PATH:-${HOME}/ssot}"
     local mod_script="${ssot_dir}/modules/dev/bedrock_mantle_proxy.py"
     if [[ -f "$mod_script" ]]; then
+        # Always keep ~/.aws/bedrock_mantle_proxy.py updated with latest SSOT script
+        mkdir -p "${HOME}/.aws"
+        cp -p "$mod_script" "${HOME}/.aws/bedrock_mantle_proxy.py" 2>/dev/null || true
         echo "$mod_script"
     else
         echo "${HOME}/.aws/bedrock_mantle_proxy.py"
@@ -79,6 +82,8 @@ oc_proxy_start() {
     mkdir -p "${HOME}/.aws"
     local log_file
     log_file="$(_oc_log_file)"
+    # Clear old log before starting
+    : > "$log_file"
 
     echo "Starting Bedrock Mantle Proxy on ${BEDROCK_PROXY_HOST}:${BEDROCK_PROXY_PORT}..."
     if [[ "${OSTYPE:-}" == "msys" || "${OSTYPE:-}" == "cygwin" || "${JOE_ENV:-}" == "GIT-BASH" ]]; then
@@ -98,7 +103,7 @@ oc_proxy_start() {
     done
 
     echo "Warning: Proxy started but healthcheck timed out. Check AWS credentials (~/.aws/credentials)." >&2
-    if [[ -f "$log_file" ]]; then
+    if [[ -f "$log_file" && -s "$log_file" ]]; then
         echo "--- Last log output (${log_file}) ---" >&2
         tail -n 8 "$log_file" >&2
         echo "------------------------------------" >&2
