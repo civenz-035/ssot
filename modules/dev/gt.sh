@@ -28,6 +28,10 @@ gt_registry_init() {
     gt_register_project ez_colors \
         "${EZ_COLORS_DIR:-$([ -d "$HOME/ez_colors" ] && echo "$HOME/ez_colors" || echo "$HOME/colors_toolkit")}"
 
+    # OpenCode + Bedrock Mantle Proxy config (SSOT-managed)
+    gt_register_project opencode \
+        "${OPENCODE_CONFIG_DIR:-$HOME/.config/opencode}"
+
     local config="${GT_CONFIG_FILE:-$HOME/.config/gt/projects.conf}"
     local name path line
 
@@ -109,6 +113,7 @@ gt_msg() {
 
 gt_ok()   { printf '  [OK]   %s\n' "$*"; }
 gt_warn() { printf '  [WARN] %s\n' "$*"; }
+gt_info() { printf '  [INFO] %s\n' "$*"; }
 gt_skip() { printf '  [SKIP] %s\n' "$*"; }
 gt_fail() { printf '  [FAIL] %s\n' "$*" >&2; }
 
@@ -349,6 +354,101 @@ gt_sync_repo() {
     }
 
     gt_ok "$name: sync complete"
+}
+
+# ------------------------------------------------------------
+# 6a. OpenCode config sync (non-git project)
+# ------------------------------------------------------------
+
+gt_opencode_sync() {
+    local cmd="${1:-sync}"
+    local ssot_root="${SSOT_DIR:-$HOME/ssot}"
+    local ssot_config="${ssot_root}/config/opencode"
+    local local_config="${HOME}/.config/opencode"
+    local aws_dir="${HOME}/.aws"
+    
+    if [[ "$cmd" == "status" ]]; then
+        gt_msg "OPENCODE CONFIG STATUS"
+        
+        # Check if SSOT source exists
+        if [[ -d "$ssot_config" ]]; then
+            gt_ok "SSOT source: $ssot_config"
+        else
+            gt_fail "SSOT source not found: $ssot_config"
+            return 1
+        fi
+        
+        # Check local config
+        if [[ -d "$local_config" ]]; then
+            gt_ok "Local config: $local_config"
+            
+            # Compare files
+            local files=("settings.json")
+            for f in "${files[@]}"; do
+                if [[ -f "$ssot_config/$f" && -f "$local_config/$f" ]]; then
+                    if diff -q "$ssot_config/$f" "$local_config/$f" >/dev/null 2>&1; then
+                        gt_ok "  $f: synced"
+                    else
+                        gt_warn "  $f: out of sync (run: gt sync opencode)"
+                    fi
+                elif [[ -f "$ssot_config/$f" && ! -f "$local_config/$f" ]]; then
+                    gt_warn "  $f: missing locally"
+                fi
+            done
+        else
+            gt_warn "Local config missing: $local_config"
+            gt_info "Run: gt sync opencode"
+        fi
+        
+        # Check proxy scripts
+        for script in bedrock_mantle_proxy.py opencode_bedrock_proxy.py; do
+            if [[ -f "$aws_dir/$script" ]]; then
+                gt_ok "Proxy script: $script"
+            else
+                gt_warn "Missing: $aws_dir/$script"
+            fi
+        done
+        
+        return 0
+    fi
+    
+    # SYNC command
+    gt_msg "SYNC: opencode config"
+    
+    if [[ ! -d "$ssot_config" ]]; then
+        gt_fail "SSOT config not found: $ssot_config"
+        return 1
+    fi
+    
+    # Ensure directories exist
+    mkdir -p "$local_config/agents" "$aws_dir"
+    
+    local copied=()
+    
+    # Sync config files
+    for f in settings.json; do
+        if [[ -f "$ssot_config/$f" ]]; then
+            cp -p "$ssot_config/$f" "$local_config/$f"
+            copied+=("config/$f")
+        fi
+    done
+    
+    # Sync proxy scripts to .aws
+    for script in bedrock_mantle_proxy.py opencode_bedrock_proxy.py; do
+        if [[ -f "$ssot_config/$script" ]]; then
+            cp -p "$ssot_config/$script" "$aws_dir/$script"
+            chmod +x "$aws_dir/$script"
+            copied+=(".aws/$script")
+        fi
+    done
+    
+    if [[ ${#copied[@]} -gt 0 ]]; then
+        gt_ok "Synced: ${copied[*]}"
+    else
+        gt_warn "Nothing to sync"
+    fi
+    
+    return 0
 }
 
 # ------------------------------------------------------------
@@ -688,6 +788,17 @@ gt() {
 
     for name in "${GT_SELECTED[@]}"; do
         dir="${GT_PROJECTS[$name]}"
+
+        # Special handling for non-git projects (e.g., opencode config)
+        if [[ "$name" == "opencode" ]]; then
+            if [[ "$cmd" == "sync" || "$cmd" == "status" ]]; then
+                gt_opencode_sync "$cmd" || rc=1
+            else
+                gt_msg "SKIP: $name (git operation not applicable)"
+            fi
+            printf '\n'
+            continue
+        fi
 
         branch="$(gt_check_repo "$name")" || {
             rc=1
