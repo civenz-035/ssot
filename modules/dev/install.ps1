@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Install and setup OpenCode + AWS Bedrock Mantle Proxy on Windows (SSOT Node).
 .DESCRIPTION
