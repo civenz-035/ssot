@@ -72,17 +72,59 @@ cat << 'EOF' > "$CONFIG_FILE"
         "apiKey": "sigv4-local"
       },
       "models": {
-        "moonshotai.kimi-k2.5": {
-          "name": "Kimi K2.5 (Bedrock Mantle)"
+        "qwen.qwen3-coder-480b-a35b-instruct": {
+          "name": "Qwen 3 Coder 480B (Top Coding)"
         },
-        "openai.gpt-oss-120b": {
-          "name": "GPT-OSS 120B (Bedrock Mantle)"
+        "qwen.qwen3-coder-next": {
+          "name": "Qwen 3 Coder Next"
+        },
+        "deepseek.v3.2": {
+          "name": "DeepSeek V3.2 (Latest)"
         },
         "deepseek.v3.1": {
-          "name": "DeepSeek V3.1 (Bedrock Mantle)"
+          "name": "DeepSeek V3.1"
         },
-        "qwen.qwen3-coder-480b-a35b-instruct": {
-          "name": "Qwen3 Coder 480B (Bedrock Mantle)"
+        "moonshotai.kimi-k2.5": {
+          "name": "Kimi K2.5"
+        },
+        "moonshotai.kimi-k2-thinking": {
+          "name": "Kimi K2 Thinking (Reasoning)"
+        },
+        "openai.gpt-oss-120b": {
+          "name": "GPT-OSS 120B (Flagship)"
+        },
+        "openai.gpt-oss-20b": {
+          "name": "GPT-OSS 20B (Fast)"
+        },
+        "mistral.mistral-large-3-675b-instruct": {
+          "name": "Mistral Large 3 675B"
+        },
+        "mistral.devstral-2-123b": {
+          "name": "Devstral 2 123B (Code Specialist)"
+        },
+        "google.gemma-3-27b-it": {
+          "name": "Google Gemma 3 27B"
+        },
+        "google.gemma-3-12b-it": {
+          "name": "Google Gemma 3 12B"
+        },
+        "nvidia.nemotron-super-3-120b": {
+          "name": "NVIDIA Nemotron Super 3 120B"
+        },
+        "nvidia.nemotron-nano-3-30b": {
+          "name": "NVIDIA Nemotron Nano 3 30B"
+        },
+        "zai.glm-5": {
+          "name": "ZAI GLM-5"
+        },
+        "zai.glm-4.7": {
+          "name": "ZAI GLM-4.7"
+        },
+        "minimax.minimax-m2.5": {
+          "name": "MiniMax M2.5"
+        },
+        "minimax.minimax-m2.1": {
+          "name": "MiniMax M2.1"
         }
       }
     }
