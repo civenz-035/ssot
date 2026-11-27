@@ -426,7 +426,7 @@ gt_opencode_sync() {
     local copied=()
     
     # Sync config files
-    for f in settings.json; do
+    for f in settings.json mcp.json; do
         if [[ -f "$ssot_config/$f" ]]; then
             cp -p "$ssot_config/$f" "$local_config/$f"
             copied+=("config/$f")
