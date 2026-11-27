@@ -95,13 +95,6 @@ alias agt='cd "$agt" && pwd'
 alias wbot='cd "$wbot" && pwd'
 alias wrc="winrate_cal"
 
-# ── 7. Module Auto-Loaders (Dev & Personal) ──
-# OpenCode & Bedrock Mantle (dev/opencode)
-if [[ -f "${SSOT:-$HOME/ssot}/modules/dev/opencode.sh" ]]; then
-    source "${SSOT:-$HOME/ssot}/modules/dev/opencode.sh"
-fi
-
-# Personal Daily Use (includes gg quick_git_workflow)
-if [[ -f "${SSOT:-$HOME/ssot}/modules/personal/daily_use.sh" ]]; then
-    source "${SSOT:-$HOME/ssot}/modules/personal/daily_use.sh"
-fi
+# ── 7. Module Auto-Loaders ──
+# NOTE: opencode.sh & daily_use.sh are auto-discovered by ssot_load() in joe.sh.
+# No manual sourcing needed here — avoids double-load.

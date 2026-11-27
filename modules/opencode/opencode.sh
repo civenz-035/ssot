@@ -20,7 +20,7 @@ _oc_get_python() {
 
 _oc_proxy_script() {
     local ssot_dir="${SSOT_PATH:-${HOME}/ssot}"
-    local mod_script="${ssot_dir}/modules/dev/bedrock_mantle_proxy.py"
+    local mod_script="${ssot_dir}/modules/opencode/bedrock_mantle_proxy.py"
     if [[ -f "$mod_script" ]]; then
         # Always keep ~/.aws/bedrock_mantle_proxy.py updated with latest SSOT script
         mkdir -p "${HOME}/.aws"
@@ -122,10 +122,10 @@ oc_proxy_stop() {
 
 oc_proxy_install() {
     local ssot_dir="${SSOT_PATH:-${HOME}/ssot}"
-    if [[ -f "${ssot_dir}/modules/dev/install.sh" ]]; then
-        bash "${ssot_dir}/modules/dev/install.sh"
-    elif [[ -f "${ssot_dir}/modules/dev/install.ps1" && ( "${OSTYPE:-}" == "msys" || "${JOE_ENV:-}" == "GIT-BASH" ) ]]; then
-        powershell.exe -ExecutionPolicy Bypass -File "${ssot_dir}/modules/dev/install.ps1"
+    if [[ -f "${ssot_dir}/modules/opencode/install.sh" ]]; then
+        bash "${ssot_dir}/modules/opencode/install.sh"
+    elif [[ -f "${ssot_dir}/modules/opencode/install.ps1" && ( "${OSTYPE:-}" == "msys" || "${JOE_ENV:-}" == "GIT-BASH" ) ]]; then
+        powershell.exe -ExecutionPolicy Bypass -File "${ssot_dir}/modules/opencode/install.ps1"
     else
         echo "Install script not found." >&2
         return 1

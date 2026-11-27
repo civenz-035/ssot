@@ -3,6 +3,11 @@
 # install.sh — Setup OpenCode + Bedrock Mantle Proxy (Universal)
 # Supports: Linux / WSL2 / Termux / macOS / Multi-machine SSOT
 # ============================================================
+# NOTE: Safe to source — all logic runs only when executed directly.
+# ============================================================
+
+# Guard: exit silently if being sourced (ssot_load sources all modules/dev/*.sh)
+[[ "${BASH_SOURCE[0]}" != "${0}" ]] && return 0
 
 set -uo pipefail
 
