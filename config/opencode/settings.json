@@ -27,13 +27,25 @@
     }
   },
   
-  "models": {
-    "bedrock_mantle": {
-      "provider": "openai-compatible",
-      "base_url": "http://127.0.0.1:4098",
-      "model": "claude-sonnet-4-6",
-      "timeout": 300,
-      "max_retries": 3
+  "providers": {
+    "bedrock-mantle": {
+      "name": "AWS Bedrock Mantle",
+      "type": "openai-compatible",
+      "baseUrl": "http://127.0.0.1:4098",
+      "models": [
+        {
+          "id": "claude-sonnet-4-6",
+          "name": "Claude Sonnet 4.6",
+          "default": true
+        },
+        {
+          "id": "claude-opus-4-6",
+          "name": "Claude Opus 4.6"
+        }
+      ],
+      "auth": {
+        "type": "none"
+      }
     }
   },
   
@@ -44,6 +56,20 @@
     "wait_timeout_seconds": 30
   },
   
+  "modelPicker": {
+    "customProviders": [
+      {
+        "id": "bedrock-mantle",
+        "displayName": "Bedrock Mantle",
+        "description": "AWS Bedrock via local proxy",
+        "type": "openai",
+        "baseUrl": "http://127.0.0.1:4098",
+        "modelsEndpoint": "/v1/models",
+        "chatEndpoint": "/v1/chat/completions"
+      }
+    ]
+  },
+
   "logging": {
     "proxy_log_level": "warning",
     "save_proxy_logs": false,
