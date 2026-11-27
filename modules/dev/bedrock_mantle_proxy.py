@@ -1,41 +1,28 @@
 """Local OpenAI-compatible SigV4 proxy for AWS Bedrock Mantle.
 SSOT Module: modules/dev/bedrock_mantle_proxy.py
+Standard Library HTTP server + urllib (Zero external web framework dependencies)
+Only requires: botocore (or requests) for AWS SigV4 signing
 """
 
+import http.server
+import json
 import os
+import socketserver
+import urllib.error
+import urllib.request
 from typing import Optional
 
 import botocore.session
-import httpx
-import uvicorn
 from botocore.auth import SigV4Auth
 from botocore.awsrequest import AWSRequest
-from fastapi import FastAPI, Request, Response
-from fastapi.responses import StreamingResponse
 
 REGION = os.environ.get("BEDROCK_MANTLE_REGION", "ap-southeast-2")
 ENDPOINT = f"https://bedrock-mantle.{REGION}.api.aws"
 HOST = os.environ.get("BEDROCK_PROXY_HOST", "127.0.0.1")
 PORT = int(os.environ.get("BEDROCK_PROXY_PORT", "4098"))
 
-app = FastAPI(title="Bedrock Mantle SigV4 Proxy")
-_client: Optional[httpx.AsyncClient] = None
 
-
-@app.on_event("startup")
-async def _startup() -> None:
-    global _client
-    _client = httpx.AsyncClient(timeout=httpx.Timeout(300.0, connect=30.0))
-    print(f"[SSOT-Proxy] Started on {HOST}:{PORT} ({REGION})")
-
-
-@app.on_event("shutdown")
-async def _shutdown() -> None:
-    if _client is not None:
-        await _client.aclose()
-
-
-def _sign_headers(method: str, url: str, body: bytes, content_type: Optional[str]) -> dict[str, str]:
+def _sign_headers(method: str, url: str, body: bytes, content_type: Optional[str]) -> dict:
     session = botocore.session.get_session()
     creds = session.get_credentials()
     if creds is None:
@@ -49,48 +36,99 @@ def _sign_headers(method: str, url: str, body: bytes, content_type: Optional[str
     return dict(aws_req.headers)
 
 
-@app.get("/health")
-async def health() -> dict[str, str]:
-    return {"status": "ok", "endpoint": ENDPOINT, "region": REGION}
+class ProxyHandler(http.server.BaseHTTPRequestHandler):
+    protocol_version = "HTTP/1.1"
 
+    def log_message(self, format, *args):
+        # Silence standard access logs, keep output clean
+        pass
 
-@app.api_route("/{full_path:path}", methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
-async def proxy(full_path: str, request: Request) -> Response:
-    assert _client is not None
-    query = request.url.query
-    target_url = f"{ENDPOINT}/{full_path}" + (f"?{query}" if query else "")
-    body = await request.body()
-    content_type = request.headers.get("content-type", "application/json" if body else None)
-    signed_headers = _sign_headers(request.method, target_url, body, content_type)
+    def do_OPTIONS(self):
+        self.send_response(200)
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+        self.send_header("Content-Length", "0")
+        self.end_headers()
 
-    req = _client.build_request(
-        method=request.method,
-        url=target_url,
-        content=body if body else None,
-        headers=signed_headers,
-    )
-    upstream = await _client.send(req, stream=True)
+    def do_GET(self):
+        if self.path == "/health":
+            body = json.dumps({"status": "ok", "endpoint": ENDPOINT, "region": REGION}).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
 
-    resp_headers = {
-        k: v
-        for k, v in upstream.headers.items()
-        if k.lower() not in {"transfer-encoding", "connection", "content-encoding", "content-length"}
-    }
+        self._forward_request("GET", None)
 
-    async def _iter_stream():
+    def do_POST(self):
+        content_length = int(self.headers.get("Content-Length", 0))
+        body = self.rfile.read(content_length) if content_length > 0 else None
+        self._forward_request("POST", body)
+
+    def _forward_request(self, method: str, body: Optional[bytes]):
+        path = self.path
+        if path.startswith("/"):
+            path = path[1:]
+        target_url = f"{ENDPOINT}/{path}"
+
+        content_type = self.headers.get("Content-Type", "application/json" if body else None)
         try:
-            async for chunk in upstream.aiter_raw():
-                yield chunk
-        finally:
-            await upstream.aclose()
+            signed_headers = _sign_headers(method, target_url, body or b"", content_type)
+        except Exception as e:
+            err_msg = json.dumps({"error": str(e)}).encode("utf-8")
+            self.send_response(500)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(err_msg)))
+            self.end_headers()
+            self.wfile.write(err_msg)
+            return
 
-    return StreamingResponse(
-        _iter_stream(),
-        status_code=upstream.status_code,
-        headers=resp_headers,
-        media_type=upstream.headers.get("content-type"),
-    )
+        req = urllib.request.Request(target_url, data=body, headers=signed_headers, method=method)
+
+        try:
+            with urllib.request.urlopen(req, timeout=300) as resp:
+                resp_body = resp.read()
+                self.send_response(resp.status)
+                for k, v in resp.getheaders():
+                    if k.lower() not in {"transfer-encoding", "connection", "content-encoding", "content-length"}:
+                        self.send_header(k, v)
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.send_header("Content-Length", str(len(resp_body)))
+                self.end_headers()
+                self.wfile.write(resp_body)
+        except urllib.error.HTTPError as e:
+            err_body = e.read()
+            self.send_response(e.code)
+            for k, v in e.headers.items():
+                if k.lower() not in {"transfer-encoding", "connection", "content-encoding", "content-length"}:
+                    self.send_header(k, v)
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Content-Length", str(len(err_body)))
+            self.end_headers()
+            self.wfile.write(err_body)
+        except Exception as e:
+            err_msg = json.dumps({"error": f"Upstream error: {e}"}).encode("utf-8")
+            self.send_response(502)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(err_msg)))
+            self.end_headers()
+            self.wfile.write(err_msg)
+
+
+class ThreadedHTTPServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
+    daemon_threads = True
+    allow_reuse_address = True
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host=HOST, port=PORT, log_level="warning")
+    print(f"[SSOT-Proxy] Starting server on {HOST}:{PORT} (Region: {REGION})...")
+    with ThreadedHTTPServer((HOST, PORT), ProxyHandler) as httpd:
+        print(f"[SSOT-Proxy] Server ready at http://{HOST}:{PORT}")
+        try:
+            httpd.serve_forever()
+        except KeyboardInterrupt:
+            print("\n[SSOT-Proxy] Stopping...")
+            httpd.server_close()

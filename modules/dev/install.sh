@@ -136,19 +136,13 @@ if [[ -z "$PYTHON_BIN" ]]; then
 fi
 _ok "Using Python: $PYTHON_BIN"
 
-MISSING=()
-for pkg in fastapi uvicorn httpx botocore requests; do
-    if ! "$PYTHON_BIN" -c "import $pkg" 2>/dev/null; then
-        MISSING+=("$pkg")
-    fi
-done
-
-if [[ ${#MISSING[@]} -gt 0 ]]; then
-    _warn "Installing required Python packages: ${MISSING[*]}..."
-    "$PYTHON_BIN" -m pip install --quiet "${MISSING[@]}"
-    _ok "Installed packages."
+# Check botocore (only required dependency)
+if ! "$PYTHON_BIN" -c "import botocore" 2>/dev/null; then
+    _warn "Installing required package: botocore..."
+    "$PYTHON_BIN" -m pip install --quiet botocore
+    _ok "Installed botocore."
 else
-    _ok "All Python packages verified."
+    _ok "botocore verified."
 fi
 
 # ── 3. Deploy Proxy Script ──

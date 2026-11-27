@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Install and setup OpenCode + AWS Bedrock Mantle Proxy on Windows (SSOT Node).
 .DESCRIPTION
@@ -40,7 +40,7 @@ if (!$PythonCmd) {
 }
 Write-Ok "Found Python: $($PythonCmd.Source)"
 
-$RequiredPkgs = @("fastapi", "uvicorn", "httpx", "botocore", "requests")
+$RequiredPkgs = @("botocore")
 $MissingPkgs = @()
 foreach ($pkg in $RequiredPkgs) {
     & python -c "import $pkg" 2>$null
@@ -50,11 +50,11 @@ foreach ($pkg in $RequiredPkgs) {
 }
 
 if ($MissingPkgs.Count -gt 0) {
-    Write-Warn "Installing missing Python packages: $($MissingPkgs -join ' ')..."
+    Write-Warn "Installing missing Python package: $($MissingPkgs -join ' ')..."
     & python -m pip install --quiet $MissingPkgs
-    Write-Ok "Python packages installed successfully."
+    Write-Ok "Python package installed successfully."
 } else {
-    Write-Ok "All Python dependencies are already installed."
+    Write-Ok "Python dependencies verified (botocore)."
 }
 
 # Copy proxy script to ~/.aws
