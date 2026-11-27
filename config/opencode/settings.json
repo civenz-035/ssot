@@ -1,0 +1,63 @@
+{
+  "_comment": "OpenCode + AWS Bedrock Mantle Proxy Configuration | SSOT Mesh Node",
+  "version": "1.0",
+  "ssot_managed": true,
+  "device_profile": "${JOE_ENV:-unknown}",
+  
+  "bedrock_mantle_proxy": {
+    "enabled": true,
+    "auto_start": false,
+    "python_script": "${HOME}/.aws/opencode_bedrock_proxy.py",
+    "host": "127.0.0.1",
+    "port": 4098,
+    "region": "ap-southeast-2",
+    
+    "environment": {
+      "BEDROCK_MANTLE_REGION": "ap-southeast-2",
+      "BEDROCK_PROXY_HOST": "127.0.0.1",
+      "BEDROCK_PROXY_PORT": "4098",
+      "AWS_PROFILE": "default"
+    },
+    
+    "health_check": {
+      "enabled": true,
+      "url": "http://127.0.0.1:4098/health",
+      "timeout_seconds": 10,
+      "retry_count": 3
+    }
+  },
+  
+  "models": {
+    "bedrock_mantle": {
+      "provider": "openai-compatible",
+      "base_url": "http://127.0.0.1:4098",
+      "model": "claude-sonnet-4-6",
+      "timeout": 300,
+      "max_retries": 3
+    }
+  },
+  
+  "startup_behavior": {
+    "start_proxy_on_launch": false,
+    "stop_proxy_on_exit": false,
+    "wait_for_proxy_ready": true,
+    "wait_timeout_seconds": 30
+  },
+  
+  "logging": {
+    "proxy_log_level": "warning",
+    "save_proxy_logs": false,
+    "log_directory": "${HOME}/.aws/logs"
+  },
+  
+  "mesh_sync": {
+    "enabled": true,
+    "sync_targets": [
+      "~/.config/opencode/settings.json",
+      "~/.config/opencode/agents/bedrock-mantle.md",
+      "~/.aws/bedrock_mantle_proxy.py",
+      "~/.aws/opencode_bedrock_proxy.py"
+    ],
+    "source_of_truth": "~/ssot/config/opencode/"
+  }
+}
