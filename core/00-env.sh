@@ -270,6 +270,17 @@ export MATH_DEFAULT_SCALE="${MATH_DEFAULT_SCALE:-2}"
 export MATH_DEFAULT_MODE="${MATH_DEFAULT_MODE:-round}"   # round | up | down
 
 # ============================================================
+# 3.6 AWS BEDROCK MANTLE PROXY (SSOT Module: modules/opencode/)
+# ============================================================
+# Default values - can be overridden in ~/.env.secret
+# Used by: bedrock_mantle_proxy.py, bedrock-cli.sh, opencode.sh
+export BEDROCK_MANTLE_REGION="${BEDROCK_MANTLE_REGION:-ap-southeast-2}"
+export BEDROCK_PROXY_HOST="${BEDROCK_PROXY_HOST:-127.0.0.1}"
+export BEDROCK_PROXY_PORT="${BEDROCK_PROXY_PORT:-4098}"
+export BEDROCK_PROXY_URL="http://${BEDROCK_PROXY_HOST}:${BEDROCK_PROXY_PORT}"
+export BEDROCK_MANTLE_MODEL="${BEDROCK_MANTLE_MODEL:-deepseek.v3.1}"
+
+# ============================================================
 # 4. NODE & BUILD SETTINGS
 # ============================================================
 
