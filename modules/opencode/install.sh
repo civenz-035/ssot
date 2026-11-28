@@ -6,7 +6,7 @@
 # NOTE: Safe to source — all logic runs only when executed directly.
 # ============================================================
 
-# Guard: exit silently if being sourced (ssot_load sources all modules/dev/*.sh)
+# Guard: exit silently if being sourced (ssot_load sources all modules/*/*.sh)
 [[ "${BASH_SOURCE[0]}" != "${0}" ]] && return 0
 
 set -uo pipefail
@@ -245,23 +245,54 @@ cat << 'EOF' > "$CONFIG_FILE"
       }
     }
   },
-  "mcp": {
-    "browse": {
-      "type": "local",
-      "enabled": true,
-      "command": [
-        "C:\\Users\\User\\.local\\bin\\browse.exe",
-        "mcp"
-      ],
-      "cwd": "C:\\Users\\User",
-      "pool": true,
-      "environment": {
-        "OPENCODE_BROWSER_RUNTIME": "auto-update"
-      }
-    }
-  }
+  "mcp": {}
 }
 EOF
 _ok "Configured ${CONFIG_FILE}"
 
-_ok "Setup Complete! Use: source ~/ssot/modules/dev/opencode.sh && oc start"
+# ── 5. Inject credential into OpenCode DB (required for /model to show bedrock-mantle) ──
+OC_DB="${HOME}/.local/share/opencode/opencode.db"
+if [[ -f "$OC_DB" ]] && command -v "$PYTHON_BIN" &>/dev/null; then
+    "$PYTHON_BIN" - <<'PYEOF'
+import sqlite3, json, time, secrets, string, sys, os
+
+db = os.path.expanduser("~/.local/share/opencode/opencode.db")
+try:
+    conn = sqlite3.connect(db)
+    c = conn.cursor()
+    c.execute("PRAGMA table_info(credential)")
+    cols = [r[1] for r in c.fetchall()]
+    if "integration_id" not in cols:
+        print("[INSTALL] ⚠  OpenCode DB schema unexpected — skipping credential injection")
+        conn.close()
+        sys.exit(0)
+    c.execute("SELECT id, active FROM credential WHERE integration_id = 'bedrock-mantle'")
+    row = c.fetchone()
+    if row:
+        if row[1] != 1:
+            c.execute("UPDATE credential SET active = 1 WHERE id = ?", (row[0],))
+            conn.commit()
+            print("[INSTALL] ✓  Activated existing bedrock-mantle credential in DB")
+        else:
+            print("[INSTALL] ✓  bedrock-mantle credential already active in DB")
+        conn.close()
+        sys.exit(0)
+    now = int(time.time() * 1000)
+    rand_part = "".join(secrets.choice(string.ascii_lowercase + string.digits) for _ in range(16))
+    cred_id = f"cred_{now:013x}{rand_part}"
+    value = json.dumps({"type": "key", "key": "sigv4-local"})
+    c.execute(
+        "INSERT INTO credential (id, integration_id, label, value, connector_id, method_id, active, time_created, time_updated) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (cred_id, "bedrock-mantle", "Bedrock Mantle (Local SigV4)", value, None, None, 1, now, now)
+    )
+    conn.commit()
+    print("[INSTALL] ✓  Injected bedrock-mantle credential into OpenCode DB")
+    conn.close()
+except Exception as e:
+    print(f"[INSTALL] ⚠  DB credential injection skipped: {e}", file=sys.stderr)
+PYEOF
+else
+    _warn "OpenCode DB not found at ${OC_DB} — run OpenCode once first, then re-run: oc install"
+fi
+
+_ok "Setup Complete! Use: oc start"

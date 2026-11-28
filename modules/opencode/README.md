@@ -1,6 +1,6 @@
 # OpenCode + AWS Bedrock Mantle Integration (SSOT Module)
 
-Module: `~/ssot/modules/dev/`
+Module: `~/ssot/modules/opencode/`
 
 โมดูลสำหรับตั้งค่าและรัน Local OpenAI-compatible SigV4 Proxy เพื่อให้ **OpenCode** (ทั้ง CLI และ Desktop GUI) สามารถเรียกใช้โมเดลใน **AWS Bedrock Mantle** (Region: `ap-southeast-2`) ได้ทันทีโดยไม่ติดขัดปัญหา Auth หรือ Provider Scheme
 
@@ -18,12 +18,12 @@ Module: `~/ssot/modules/dev/`
 
 ### สำหรับ Windows (PowerShell)
 ```powershell
-pwsh -ExecutionPolicy Bypass -File ~/ssot/modules/dev/install.ps1
+pwsh -ExecutionPolicy Bypass -File ~/ssot/modules/opencode/install.ps1
 ```
 
 ### สำหรับ Linux / WSL / macOS (Bash)
 ```bash
-bash ~/ssot/modules/dev/install.sh
+bash ~/ssot/modules/opencode/install.sh
 ```
 
 ---
@@ -32,7 +32,7 @@ bash ~/ssot/modules/dev/install.sh
 
 ```bash
 # โหลดโมดูล
-source ~/ssot/modules/dev/opencode.sh
+source ~/ssot/modules/opencode/opencode.sh
 
 # ตรวจสอบสถานะ proxy
 oc status
