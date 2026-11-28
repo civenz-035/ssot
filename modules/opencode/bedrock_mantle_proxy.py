@@ -1,8 +1,29 @@
 """Local OpenAI-compatible SigV4 proxy for AWS Bedrock Mantle.
-SSOT Module: modules/dev/bedrock_mantle_proxy.py
+SSOT Module: modules/opencode/bedrock_mantle_proxy.py
 Standard Library HTTP server + urllib (Zero external web framework dependencies)
-Only requires: botocore (or requests) for AWS SigV4 signing
+Only requires: botocore for AWS SigV4 signing
 """
+
+import sys
+import os
+
+# ── Neutralize broken system pyOpenSSL (Ubuntu/WSL2 python3-openssl bug) ──
+# Prevents: AttributeError: module 'lib' has no attribute 'GEN_EMAIL'
+# Cause: botocore → urllib3 → urllib3.contrib.pyopenssl → broken system OpenSSL
+# Fix: inject a stub before botocore loads so urllib3 skips pyOpenSSL backend.
+def _patch_broken_openssl():
+    try:
+        import OpenSSL  # noqa: F401
+    except (AttributeError, ImportError, Exception):
+        import types
+        _stub = types.ModuleType("OpenSSL")
+        _stub.SSL = types.ModuleType("OpenSSL.SSL")
+        _stub.crypto = types.ModuleType("OpenSSL.crypto")
+        sys.modules.setdefault("OpenSSL", _stub)
+        sys.modules.setdefault("OpenSSL.SSL", _stub.SSL)
+        sys.modules.setdefault("OpenSSL.crypto", _stub.crypto)
+
+_patch_broken_openssl()
 
 import http.server
 import json

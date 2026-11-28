@@ -144,10 +144,23 @@ _ok "Using Python: $PYTHON_BIN"
 # Check botocore (only required dependency)
 if ! "$PYTHON_BIN" -c "import botocore" 2>/dev/null; then
     _warn "Installing required package: botocore..."
-    "$PYTHON_BIN" -m pip install --quiet botocore
+    "$PYTHON_BIN" -m pip install --quiet --user botocore
     _ok "Installed botocore."
 else
     _ok "botocore verified."
+fi
+
+# ── Fix broken system pyOpenSSL (Ubuntu/WSL2 — AttributeError: GEN_EMAIL) ──
+# botocore → urllib3 → pyOpenSSL triggers crash on Ubuntu's python3-openssl.
+# Install a working version as user package (takes priority over system package).
+if "$PYTHON_BIN" -c "import OpenSSL" 2>&1 | grep -q "GEN_EMAIL\|AttributeError"; then
+    _warn "Broken system pyOpenSSL detected. Installing user-level fix..."
+    "$PYTHON_BIN" -m pip install --quiet --user --upgrade "pyOpenSSL>=23.0.0" cryptography
+    _ok "pyOpenSSL fixed (user install)."
+elif ! "$PYTHON_BIN" -c "import OpenSSL" 2>/dev/null; then
+    _ok "pyOpenSSL not installed — using proxy's built-in stub (safe)."
+else
+    _ok "pyOpenSSL OK."
 fi
 
 # ── 3. Deploy Proxy Script ──
