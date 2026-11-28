@@ -9,3 +9,6 @@ export MY_DEVICE="${MY_DEVICE:-termux}"
 export SSOT="${SSOT:-$HOME/ssot}"
 
 [[ -f "$SSOT/profiles/_common/bashrc.sh" ]] && source "$SSOT/profiles/_common/bashrc.sh"
+
+# opencode
+export PATH=/data/data/com.termux/files/home/.opencode/bin:$PATH
